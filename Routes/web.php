@@ -16,6 +16,8 @@ Route::group(['prefix' => 'admin/kpi', 'as' => 'admin.kpi.'], function () {
 
 	Route::get('overview', 'Admin\AdminPanelController@index')->name('overview');
 	Route::get('infractions', 'Admin\AdminPanelController@infractions')->name('infractions.index');
+	Route::get('ratings', 'Admin\AdminPanelController@rating')->name('rating.index');
+	Route::get('get-employees', 'Admin\AdminPanelController@employees')->name('rating.employees');
 
 	//Infractions routes
 	Route::resource('infractions', 'InfractionsController', ['except' => ['index']]);

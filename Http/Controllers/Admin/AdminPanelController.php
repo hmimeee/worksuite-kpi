@@ -2,12 +2,16 @@
 
 namespace Modules\KPI\Http\Controllers\Admin;
 
+use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
-use App\Http\Controllers\Admin\AdminBaseController;
-use Modules\KPI\DataTables\InfractionsDataTable;
+use Modules\KPI\Entities\Employee;
 use Modules\KPI\Entities\InfractionType;
+use Modules\KPI\DataTables\RatingsDataTable;
+use Modules\KPI\DataTables\EmployeesDataTable;
+use Modules\KPI\DataTables\InfractionsDataTable;
+use App\Http\Controllers\Admin\AdminBaseController;
 
 class AdminPanelController extends AdminBaseController
 {
@@ -37,12 +41,23 @@ class AdminPanelController extends AdminBaseController
      * Display a listing of the resource.
      * @return Response
      */
-    public function rating(InfractionsDataTable $dataTable)
+    public function rating(EmployeesDataTable $dataTable)
     {
-        $this->pageTitle = 'Review & Rating';
-
+        $this->pageTitle = 'Task Ratings & KPI Scores';
+        
         return $dataTable->render('kpi::admin.rating', $this->data);
     }
+
+    // public function employees(EmployeesDataTable $dataTable)
+    // {
+    //     $this->employees = Employee::where('id', user()->id);
+
+    //     if (user()->hasRole('admin')) {
+    //         $this->employees = Employee::exceptWriters()->active()->get();
+    //     }
+
+    //     return
+    // }
 
     /**
      * Show the form for creating a new resource.

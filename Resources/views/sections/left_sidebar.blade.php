@@ -9,9 +9,16 @@
                 <span class="hide-menu">Overview</span>
             </a>
         </li>
+
         <li>
             <a href="{{route('admin.kpi.infractions.index')}}" class="waves-effect">
                 <span class="hide-menu">Infractions</span>
+            </a>
+        </li>
+
+        <li>
+            <a href="{{route('admin.kpi.rating.index')}}" class="waves-effect">
+                <span class="hide-menu">Work Performance</span>
             </a>
         </li>
     </ul>
