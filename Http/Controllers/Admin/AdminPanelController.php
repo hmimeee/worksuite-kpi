@@ -3,10 +3,12 @@
 namespace Modules\KPI\Http\Controllers\Admin;
 
 use App\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Modules\KPI\Entities\Employee;
+use Illuminate\Support\Facades\Http;
 use Modules\KPI\Entities\InfractionType;
 use Modules\KPI\DataTables\RatingsDataTable;
 use Modules\KPI\DataTables\EmployeesDataTable;
@@ -22,8 +24,10 @@ class AdminPanelController extends AdminBaseController
     public function index()
     {
         $this->pageTitle = 'KPI Overview';
+        $this->topScorers = Employee::topFiveScorers();
+        $this->employees = Employee::exceptWriters()->active()->get();
         
-        return view('kpi::index', $this->data);
+        return view('kpi::admin.index', $this->data);
     }
 
     /**
@@ -33,6 +37,7 @@ class AdminPanelController extends AdminBaseController
     public function infractions(InfractionsDataTable $dataTable)
     {
         $this->pageTitle = 'Infractions';
+        $this->employees = Employee::exceptWriters()->active()->get();
 
         return $dataTable->render('kpi::admin.infractions', $this->data);
     }
@@ -41,23 +46,35 @@ class AdminPanelController extends AdminBaseController
      * Display a listing of the resource.
      * @return Response
      */
-    public function rating(EmployeesDataTable $dataTable)
+    public function rating(RatingsDataTable $dataTable)
     {
-        $this->pageTitle = 'Task Ratings & KPI Scores';
+        $this->pageTitle = 'Task Ratings & Ontime Scores';
+        $this->employees = Employee::exceptWriters()->active()->get();
         
         return $dataTable->render('kpi::admin.rating', $this->data);
     }
 
-    // public function employees(EmployeesDataTable $dataTable)
-    // {
-    //     $this->employees = Employee::where('id', user()->id);
 
-    //     if (user()->hasRole('admin')) {
-    //         $this->employees = Employee::exceptWriters()->active()->get();
-    //     }
+    /**
+     * Display a listing of the resource.
+     * @return Response
+     */
+    public function attendances(Request $request)
+    {
+        $this->pageTitle = 'Attendances';
+        $this->employees = Employee::exceptWriters()->active()->get();
+        $this->logData = Employee::trackedData();
 
-    //     return
-    // }
+        return view('kpi::admin.attendances', $this->data);
+    }
+
+
+    public function userData(Employee $user)
+    {
+        $userData = Employee::userTrackedData($user->id);
+
+        return $userData;
+    }
 
     /**
      * Show the form for creating a new resource.

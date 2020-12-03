@@ -4,11 +4,12 @@ namespace Modules\KPI\DataTables;
 
 use App\Task;
 use Carbon\Carbon;
+use App\Attendance;
 use Yajra\DataTables\Html\Button;
 use Yajra\DataTables\Html\Column;
 use Yajra\DataTables\Services\DataTable;
 
-class RatingsDataTable extends DataTable
+class AttendancesDataTable extends DataTable
 {
     /**
      * Build DataTable class.
@@ -63,10 +64,10 @@ class RatingsDataTable extends DataTable
     /**
      * Get query source of dataTable.
      *
-     * @param \App\Task $model
+     * @param \App\Attendance $model
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function query(Task $model)
+    public function query(Attendance $model)
     {
         $date = request()->month ? Carbon::createFromDate(date('Y'), request()->month, 1) : Carbon::now();
         $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');

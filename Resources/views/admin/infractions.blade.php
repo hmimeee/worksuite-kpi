@@ -24,15 +24,65 @@
 
 @section('content')
 <div class="row">
-	<div class="col-md-12">
-		<div class="white-box">
-			<div class="p-10">
-				<div class="table-responsive">
-					{!! $dataTable->table(['class' => 'table table-bordered table-hover toggle-circle default footable-loaded footable']) !!}
-				</div>
+@section('filter-section')
+<form>
+	<div class="form-group">
+		<label>Select month of {{ date('Y') }}</label>
+		<select name="month" id="month" class="form-control">
+			@for($i = 1 ; $i <= 12; $i++)
+				<option value="{{ $i }}"
+					{{ request('month') == $i ? 'selected' : '' }}
+					{{ request('month') == null && $i == date('m') ? 'selected' : '' }}>
+					{{ date("F",strtotime(date("Y")."-".$i."-01")) }}
+				</option>
+			@endfor
+		</select>
+	</div>
+
+	<div class="form-group">
+		<button class="btn btn-success btn-sm">Apply</button>
+		<a href="{{ request()->url() }}" class="btn btn-inverse btn-sm">Reset</a>
+	</div>
+</form>
+@endsection
+<div class="col-md-5">
+	<div class="white-box">
+		<div class="p-10">
+			<h4 class="block-head">Statistics</h4>
+			<table class="table table-bordered table-hover" id="employees-table">
+				<thead>
+					<tr>
+						<th>#</th>
+						<th>Name</th>
+						<th>Score (Out of 20)</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach($employees as $employee)
+						<tr>
+							<td>{{ $employee->id }}</td>
+							<td><a href="javascript:;" onclick="userInfractions('{{ $employee->id }}')">{{ $employee->name }}</a></td>
+							<td>
+								{{Modules\KPI\Entities\Employee::infractionScore($employee->id)}}
+							</td>
+						</tr>
+					@endforeach
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+<div class="col-md-7">
+	<div class="white-box">
+		<div class="p-10">
+			<h4 class="block-head">Infractions</h4>
+			<div class="table-responsive">
+				{!! $dataTable->table(['class' => 'table table-bordered table-hover toggle-circle default footable-loaded footable']) !!}
+				<input type="hidden" name="employee" value="{{auth()->id()}}" id="employeeId">
 			</div>
 		</div>
 	</div>
+</div>
 </div>
 
 {{--Ajax Modal--}}
@@ -68,7 +118,23 @@
 {!! $dataTable->scripts() !!}
 
 <script>
-	function viewInfraction(id){
+
+	$('#infractions-table').on('preXhr.dt', function (e, settings, data) {
+		data['employee'] = $('#employeeId').val();
+		data['length'] = 15;
+		data['month'] = $('#month').val();
+	});
+
+	function reloadTable() {
+		window.LaravelDataTables["infractions-table"].draw();
+	}
+
+	function userInfractions(id) {
+		$('#employeeId').val(id);
+		reloadTable();
+	}
+
+	function viewInfraction(id) {
 		url = '{{ route('admin.kpi.infractions.show', ':id')}}';
 		url = url.replace(':id', id);
 
@@ -129,19 +195,11 @@
 	});
 
 	$(".select2").select2();
-
-	// $('#apply-filters').click(function () {
-	// 	$('#candidates-table').on('preXhr.dt', function (e, settings, data) {
-	// 		var status = $('#status').val();
-	// 		data['status'] = status;
-	// 	});
-
-	// 	$.easyBlockUI('#candidates-table');
-		// window.LaravelDataTables["candidates-table"].draw();
-	// 	$.easyUnblockUI('#candidates-table');
-
-	// });
-
-	$()
+	
+	$(document).ready(function () {
+			$('#employees-table').DataTable({
+				"pageLength": 15
+			});
+		});
 </script>
 @endpush

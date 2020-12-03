@@ -16,6 +16,8 @@ class Infraction extends Model
     	'details',
     ];
 
+    public $dates = ['created_at', 'updated_at'];
+
     protected $table = 'kpi_infractions';
 
     public function user()

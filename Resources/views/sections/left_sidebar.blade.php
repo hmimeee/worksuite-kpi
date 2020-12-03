@@ -21,5 +21,11 @@
                 <span class="hide-menu">Work Performance</span>
             </a>
         </li>
+
+        <li>
+            <a href="{{route('admin.kpi.attendances.index')}}" class="waves-effect">
+                <span class="hide-menu">Attendance Performance</span>
+            </a>
+        </li>
     </ul>
 </li>

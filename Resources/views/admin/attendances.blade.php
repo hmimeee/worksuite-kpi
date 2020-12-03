@@ -21,23 +21,42 @@
 
 @section('content')
 <div class="row">
-@section('filter-section')
-<form>
+	@section('filter-section')
+	<form>
 		<div class="form-group">
-			<label>Select month of {{date('Y')}}</label>
+			<label>Select month</label>
+			<select name="year" id="year" class="form-control">
+				@foreach (range(date("Y"), 2019) as $year)
+					<option value="{{ $year }}"
+						{{ request('year') == $year ? 'selected' : '' }}
+						{{ request('year') == null && $year == date('Y') ? 'selected' : '' }}>
+						{{ $year }}
+					</option>
+				@endforeach
+			</select>
+		</div>
+
+		<div class="form-group">
+			<label>Select month of {{ date('Y') }}</label>
 			<select name="month" id="month" class="form-control">
 				@for($i = 1 ; $i <= 12; $i++)
-				<option value="{{$i}}" {{request('month') == $i ? 'selected' : ''}} {{request('month') == null && $i == date('m') ? 'selected' : ''}}>{{date("F",strtotime(date("Y")."-".$i."-01"))}}</option>
+					<option value="{{ $i }}"
+						{{ request('month') == $i ? 'selected' : '' }}
+						{{ request('month') == null && $i == date('m') ? 'selected' : '' }}>
+						{{ date("F",strtotime(date("Y")."-".$i."-01")) }}
+					</option>
 				@endfor
 			</select>
 		</div>
-		
+
 		<div class="form-group">
 			<button class="btn btn-success btn-sm">Apply</button>
-			<a href="{{request()->url()}}" class="btn btn-inverse btn-sm">Reset</a>
+			<a href="{{ request()->url() }}" class="btn btn-inverse btn-sm">Reset</a>
+			<input type="hidden" name="employee" value="{{ request()->employee ?? auth()->id() }}"
+				id="userData">
 		</div>
-</form>
-		@endsection
+	</form>
+	@endsection
 	<div class="col-lg-5">
 		<div class="white-box">
 			<div class="p-10">
@@ -47,22 +66,27 @@
 						<tr role="row">
 							<th>#</th>
 							<th>Name</th>
-							<th>Rating</th>
-							<th>Ontime Score (Out of 20)</th>
+							<th>Attended Days</th>
+							{{-- <th>Total Logged</th> --}}
+							<th>Score</th>
 						</tr>
 					</thead>
 					<tbody id="list">
 						@foreach($employees as $employee)
+						@php($log = $logData->where('email', $employee->email))
 							<tr>
 								<td>{{$employee->id }}</td>
-								<td><a href="javascript:;" onclick="userTasks('{{$employee->id }}')">{{ $employee->name }}</a></td>
+								<td><a href="javascript:;" onclick="userData('{{$employee->id}}', '{{ $employee->name }}')">{{ $employee->name }}</a></td>
 								<td>
-									@php($html = Modules\KPI\Entities\Employee::taskRating($employee->id))
-									{!!$html!!}
+									{{ $log->count() }}
 								</td>
+								{{-- <td>
+									@php($hours = $log->sum('minutes')/60)
+									@php($minutes = $hours - floor($hours))
+									{{floor($hours)}} hours {{round($minutes*60)}} minutes
+								</td> --}}
 								<td>
-									@php($score = Modules\KPI\Entities\Employee::taskScores($employee->id))
-									{!!$score!!}
+									{{\Modules\KPI\Entities\Employee::attendanceScore($employee->id)}}
 								</td>
 							</tr>
 						@endforeach
@@ -75,9 +99,18 @@
 	<div class="col-lg-7">
 		<div class="white-box">
 			<div class="p-10">
-				<h4 class="block-head">User Tasks</h4>
-				{!! $dataTable->table(['class' => 'table table-bordered table-hover toggle-circle default footable-loaded footable']) !!}
-					<input type="hidden" name="employee" value="{{auth()->id()}}" id="employeeId">
+				<h4 class="block-head"><span class="text-info font-bold" id="userName">{{\App\User::find(request()->employee)->name ?? auth()->user()->name}}</span>'s Attendances</h4>
+				<table class="table table-bordered table-hover" id="attendances-table">
+					<thead>
+						<tr>
+							<th>Date</th>
+							<th>Start Time</th>
+							<th>Break Start</th>
+							<th>Break End</th>
+							<th>End Time</th>
+						</tr>
+					</thead>
+				</table>
 			</div>
 		</div>
 	</div>
@@ -109,61 +142,61 @@
 	<script src="{{ asset('plugins/bower_components/datatables/jquery.dataTables.min.js') }}">
 	</script>
 	<script src="https://cdn.datatables.net/1.10.13/js/dataTables.bootstrap.min.js"></script>
-	<script src="https://cdn.datatables.net/responsive/2.1.1/js/dataTables.responsive.min.js"></script>
-	<script src="{{ asset('plugins/bower_components/custom-select/custom-select.min.js') }}">
-	</script>
-	<script
-		src="{{ asset('plugins/bower_components/bootstrap-select/bootstrap-select.min.js') }}">
-	</script>
-	<script src="https://cdn.datatables.net/buttons/1.0.3/js/dataTables.buttons.min.js"></script>
-	<script src="{{ asset('js/datatables/buttons.server-side.js') }}"></script>
-
-	{!! $dataTable->scripts() !!}
 
 	<script>
-	function userTasks(id) {
-		$('#employeeId').val(id);
-		window.scrollTo({
-			top: 0,
-			behavior: 'smooth'
+		$(document).ready(function () {
+			$('#employees-table').DataTable({
+				"pageLength": 25
+			});
+
+			tableReload();
 		});
-		reloadTable();
-	};
 
-		function showTask(id) {
-			$(".right-sidebar").slideDown(50).addClass("shw-rside");
-			url = '{{ route('admin.all-tasks.show', ':id') }}';
-			url = url.replace(':id', id);
-
-			$.easyAjax({
-				type: 'GET',
+		function tableReload() {
+			url = '{{route('admin.kpi.attendances.userData', ':id')}}';
+			url = url.replace(':id', $('#userData').val());
+			$.ajax({
+				method: 'GET',
 				url: url,
-				success: function (response) {
-					if (response.status == "success") {
-						$('#right-sidebar-content').html(response.view);
-					}
-
-					$("body").tooltip({
-						selector: '[data-toggle="tooltip"]'
-					});
+				data: {
+					'month': '{{request()->month}}',
+					'year': '{{request()->year}}',
+					'array': true,
+				},
+				success: function (res) {
+					timeTable(res);
 				}
 			});
 		}
 
-		 $('#tasks-table').on('preXhr.dt', function (e, settings, data) {
-			data['employee'] = $('#employeeId').val();
-			data['length'] = 15;
-			data['month'] = $('#month').val();
-		 });
-
-		function reloadTable() {
-			window.LaravelDataTables["tasks-table"].draw();
+		function userData(id, name = null) {
+			$('#userData').val(id);
+			$('#userName').text(name);
+			$('#attendances-table').DataTable().clear().destroy();
+			tableReload();
 		}
 
-		$(document).ready(function () {
-			$('#employees-table').DataTable({
-				"pageLength": 15
+		function timeTable(data) {
+			$('#attendances-table').DataTable({
+				"pageLength": 25,
+				"data": data,
+				columns: [{
+						data: 'date'
+					},
+					{
+						data: 'start'
+					},
+					{
+						data: 'break_start'
+					},
+					{
+						data: 'break_end'
+					},
+					{
+						data: 'end'
+					}
+				]
 			});
-		});
+		}
 	</script>
 @endpush

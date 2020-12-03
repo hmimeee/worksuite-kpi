@@ -24,7 +24,7 @@ class EmployeesDataTable extends DataTable
             ->eloquent($query)
 
             ->editColumn('name', function ($row) {
-                $name = '<a href="javascript::" id="userTasks" data-id="'.$row->user->id.'">'.$row->user->name.'</a>';
+                $name = '<a href="javascript:;" onclick="loadTasks('.$row->user->id.')">'.$row->user->name.'</a>';
 
                 return $name;
             })
@@ -119,13 +119,6 @@ class EmployeesDataTable extends DataTable
             'name' => ['data' => 'name', 'name' => 'user.name'],
             'rating',
             'score',
-            // Column::computed('action')
-            //     ->exportable(false)
-            //     ->printable(false)
-            //     ->orderable(false)
-            //     ->searchable(false)
-            //     ->width(150)
-            //     ->addClass('text-center')
         ];
     }
 
