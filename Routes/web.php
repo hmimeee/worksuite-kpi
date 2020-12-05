@@ -20,6 +20,7 @@ Route::group(['prefix' => 'admin/kpi', 'as' => 'admin.kpi.'], function () {
 	Route::get('get-tasks', 'Admin\AdminPanelController@tasks')->name('rating.tasks');
 	Route::get('attendances', 'Admin\AdminPanelController@attendances')->name('attendances.index');
 	Route::get('attendances/user-data/{user}', 'Admin\AdminPanelController@userData')->name('attendances.userData');
+	Route::any('settings', 'Admin\AdminPanelController@settings')->name('settings');
 
 	//Infractions routes
 	Route::resource('infractions', 'InfractionsController', ['except' => ['index']]);

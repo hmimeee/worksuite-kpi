@@ -17,7 +17,7 @@
 		@section('filter-section')
 	<form>
 		<div class="form-group">
-			<label>Select month</label>
+			<label>Select year</label>
 			<select name="year" id="year" class="form-control">
 				@foreach (range(date("Y"), 2019) as $year)
 					<option value="{{ $year }}"
@@ -164,9 +164,9 @@
 								<tr>
 									<th>#</th>
 									<th>Name</th>
-									<th>Attendance Score (Out of 40)</th>
-									<th>Infraction Score (Out of 20)</th>
-									<th>Work Score (Out of 20)</th>
+									<th>Attendance Score (out of {{$settings['attendance_score'] ?? 0}})</th>
+									<th>Work Score (out of {{$settings['work_score'] ?? 0}})</th>
+									<th>Infraction Score (out of {{$settings['infraction_score'] ?? 0}})</th>
 									<th>Total Score</th>
 								</tr>
 							</thead>
@@ -179,10 +179,10 @@
 											{{ Modules\KPI\Entities\Employee::attendanceScore($employee->id) }}
 										</td>
 										<td>
-											{{ Modules\KPI\Entities\Employee::infractionScore($employee->id) }}
+											{{ Modules\KPI\Entities\Employee::taskScores($employee->id) }}
 										</td>
 										<td>
-											{{ Modules\KPI\Entities\Employee::taskScores($employee->id) }}
+											{{ Modules\KPI\Entities\Employee::infractionScore($employee->id) }}
 										</td>
 										<td>
 											{{ Modules\KPI\Entities\Employee::allScores($employee->id)->total }}

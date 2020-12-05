@@ -11,8 +11,8 @@
         </li>
 
         <li>
-            <a href="{{route('admin.kpi.infractions.index')}}" class="waves-effect">
-                <span class="hide-menu">Infractions</span>
+            <a href="{{route('admin.kpi.attendances.index')}}" class="waves-effect">
+                <span class="hide-menu">Attendance Performance</span>
             </a>
         </li>
 
@@ -23,8 +23,14 @@
         </li>
 
         <li>
-            <a href="{{route('admin.kpi.attendances.index')}}" class="waves-effect">
-                <span class="hide-menu">Attendance Performance</span>
+            <a href="{{route('admin.kpi.infractions.index')}}" class="waves-effect">
+                <span class="hide-menu">Infractions</span>
+            </a>
+        </li>
+
+        <li>
+            <a href="{{route('admin.kpi.settings')}}" class="waves-effect">
+                <span class="hide-menu">Settings</span>
             </a>
         </li>
     </ul>

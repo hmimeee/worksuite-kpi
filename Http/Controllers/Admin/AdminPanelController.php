@@ -6,6 +6,7 @@ use App\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Modules\KPI\Entities\Setting;
 use Illuminate\Routing\Controller;
 use Modules\KPI\Entities\Employee;
 use Illuminate\Support\Facades\Http;
@@ -26,6 +27,7 @@ class AdminPanelController extends AdminBaseController
         $this->pageTitle = 'KPI Overview';
         $this->topScorers = Employee::topFiveScorers();
         $this->employees = Employee::exceptWriters()->active()->get();
+        $this->settings = Setting::all()->pluck('value', 'name');
         
         return view('kpi::admin.index', $this->data);
     }
@@ -38,7 +40,8 @@ class AdminPanelController extends AdminBaseController
     {
         $this->pageTitle = 'Infractions';
         $this->employees = Employee::exceptWriters()->active()->get();
-
+        $this->settings = Setting::all()->pluck('value', 'name');
+        
         return $dataTable->render('kpi::admin.infractions', $this->data);
     }
 
@@ -64,7 +67,8 @@ class AdminPanelController extends AdminBaseController
         $this->pageTitle = 'Attendances';
         $this->employees = Employee::exceptWriters()->active()->get();
         $this->logData = Employee::trackedData();
-
+        $this->settings = Setting::all()->pluck('value', 'name');
+        
         return view('kpi::admin.attendances', $this->data);
     }
 
@@ -74,6 +78,31 @@ class AdminPanelController extends AdminBaseController
         $userData = Employee::userTrackedData($user->id);
 
         return $userData;
+    }
+
+    public function settings(Request $request)
+    {
+        if ($request->has('update_setting')) {
+            $settings = $request->only([
+                'start_time',
+                'end_time',
+                'start_break_time',
+                'end_break_time',
+                'attendance_score',
+                'work_score',
+                'infraction_score']
+            );
+
+            foreach ($settings as $key => $value) {
+                Setting::updateOrCreate(['name' => $key], ['value' => $value]);
+            }
+
+            return back()->withSuccess('Settings updated successfully');
+        }
+        $this->pageTitle = 'KPI: Settings';
+        $this->settings = Setting::all()->pluck('value', 'name');
+
+        return view('kpi::admin.settings', $this->data);
     }
 
     /**

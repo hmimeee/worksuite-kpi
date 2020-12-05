@@ -7,6 +7,7 @@ use App\User;
 use App\Leave;
 use App\Holiday;
 use Carbon\Carbon;
+use Modules\KPI\Entities\Setting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
@@ -38,13 +39,19 @@ class Employee extends User
 
     public function finishedCreatedTasks()
     {
-        $date = Carbon::createFromDate((request()->year ?? date('Y')), (request()->month ?? date('m')), date('d'));
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+
+        $date = Carbon::createFromDate($year, $month, date('d'));
         return $this->hasMany(Task::class, 'created_by')->whereBetween('completed_on', [$date->firstOfMonth()->format('Y-m-d H:i:s'), $date->endOfMonth()->format('Y-m-d H:i:s')])->where('board_column_id', 2);
     }
 
     public function infractions()
     {
-        $date = Carbon::createFromDate((request()->year ?? date('Y')), (request()->month ?? date('m')), date('d'));
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+
+        $date = Carbon::createFromDate($year, $month, date('d'));
         $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');
         $endDate = $date->endOfMonth()->format('Y-m-d H:i:s');
 
@@ -54,16 +61,19 @@ class Employee extends User
     public static function infractionScore($id)
     {
         $infractions = Employee::find($id)->infractions;
-        $score = 20 - $infractions->sum('reduction_points');
+        $baseScore = Setting::value('infraction_score', 'number') ?? 0;
+        $score = $baseScore - $infractions->sum('reduction_points');
         if ($infractions->count() <= 0) {
-             $score = 0;
+             $score = $baseScore;
         }
         return number_format($score,1);
     }
 
     public function getCompletedTasks()
     {
-        $date = Carbon::createFromDate((request()->year ?? date('Y')), (request()->month ?? date('m')), date('d'));
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+        $date = Carbon::createFromDate($year, $month, date('d'));
 
         return $this->belongsToMany(Task::class, 'task_users', 'user_id')->whereBetween('completed_on', [$date->firstOfMonth()->format('Y-m-d H:i:s'), $date->endOfMonth()->format('Y-m-d H:i:s')])->where('board_column_id', 2);
     }
@@ -102,8 +112,9 @@ class Employee extends User
         $employee = Employee::find($id);
         $tasks = $employee->getCompletedTasks;
         $createdTasks = $employee->finishedCreatedTasks;
-        $score = number_format(20, 1);
-        $deduct = $tasks->count() ? 20 / $tasks->count() : 0;
+        $baseScore = Setting::value('work_score', 'number') ?? 0;
+        $score = number_format($baseScore, 1);
+        $deduct = $tasks->count() ? $baseScore / $tasks->count() : 0;
 
         if ($tasks->count() > 0) {
             $faults = 0;
@@ -112,7 +123,7 @@ class Employee extends User
                     $faults += 1 / $item->users->count();
                 }
             }
-            $score = 20 - ($deduct * $faults);
+            $score = $baseScore - ($deduct * $faults);
         }
 
         if ($createdTasks->count() > 0) {
@@ -147,7 +158,7 @@ class Employee extends User
         $iscore = Employee::infractionScore($id, 'json');
         $ascore = Employee::attendanceScore($id);
         $total = $tscore + $iscore + $ascore;
-        $outof = 80;
+        $outof = Setting::value('infraction_score') + Setting::value('work_score') + Setting::value('attendance_score') ?? 0;
 
         return (object) ['total' => $total, 'outof' => $outof];
     }
@@ -161,6 +172,7 @@ class Employee extends User
             $iscr[$emp->id] = Employee::infractionScore($emp->id);
             $ascr[$emp->id] = Employee::attendanceScore($emp->id);
         }
+
         arsort($scr);
         arsort($wscr);
         arsort($iscr);
@@ -188,11 +200,11 @@ class Employee extends User
         $startDate = $date->firstOfMonth()->format('Y-m-d');
         $endDate = $date->endOfMonth()->format('Y-m-d');
 
-        if ($dbData == null || $dbData->updated_at->diffInHours(now()) > 12) {
+        if ($dbData == null || $dbData->updated_at->diffInHours(now()) > 6) {
             $response = Http::withBasicAuth("faisal@viserx.com", "qsu9VC\-`'V")
             ->get('https://www.webwork-tracker.com/rest-api/reports/daily-timeline', [
-                'start_date' => now()->firstOfYear()->format('Y-m-d'),
-                'end_date' => now()->endOfYear()->format('Y-m-d')
+                'start_date' => now()->firstOfMonth()->format('Y-m-d'),
+                'end_date' => now()->endOfMonth()->format('Y-m-d')
             ]);
 
             $data = $response->json();
@@ -315,9 +327,9 @@ class Employee extends User
 
             if ($hasLeave == null) {
                 //Hour * 60 + Minutes = Total Minutes
-                $startTime = 670;
-                $endTime = 1139;
-                $breakEnd = 906;
+                $startTime = Setting::value('start_time', 'time')->format('H') * 60 + Setting::value('start_time', 'time')->format('i') ?? 670;
+                $endTime = Setting::value('end_time', 'time')->format('H') * 60 + Setting::value('end_time', 'time')->format('i') ?? 1139;
+                $breakEnd = Setting::value('end_break_time', 'time')->format('H') * 60 + Setting::value('end_break_time', 'time')->format('i') ?? 905;
 
                 //Check if the user start office after 11:10 am
                 if ($start > $startTime) {
@@ -360,10 +372,11 @@ class Employee extends User
         }
 
         $attendances = $trackedData->count();
+        $baseScore = Setting::value('attendance_score', 'number') ?? 0;
         if ($faults > 0) {
-            $score = 40 - (40 / $attendances) * $faults;
+            $score = $baseScore - ($baseScore / $attendances) * $faults;
         } else {
-            $score = 40;
+            $score = $baseScore;
         }
 
         if ($attendances == 0) {

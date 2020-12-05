@@ -24,6 +24,8 @@ class CreateTrackedDataTable extends Migration
             $table->string('leave')->nullable();
             $table->timestamps();
 
+            $table->foreign('email')->references('email')->on('users')->onDelete('cascade');
+
             $table->primary(['email', 'date']);
         });
     }

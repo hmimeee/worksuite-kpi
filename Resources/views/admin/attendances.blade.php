@@ -24,7 +24,7 @@
 	@section('filter-section')
 	<form>
 		<div class="form-group">
-			<label>Select month</label>
+			<label>Select year</label>
 			<select name="year" id="year" class="form-control">
 				@foreach (range(date("Y"), 2019) as $year)
 					<option value="{{ $year }}"
@@ -37,7 +37,7 @@
 		</div>
 
 		<div class="form-group">
-			<label>Select month of {{ date('Y') }}</label>
+			<label>Select month</label>
 			<select name="month" id="month" class="form-control">
 				@for($i = 1 ; $i <= 12; $i++)
 					<option value="{{ $i }}"
@@ -68,7 +68,7 @@
 							<th>Name</th>
 							<th>Attended Days</th>
 							{{-- <th>Total Logged</th> --}}
-							<th>Score</th>
+							<th>Score (out of {{$settings['attendance_score'] ?? 0}})</th>
 						</tr>
 					</thead>
 					<tbody id="list">

@@ -27,6 +27,19 @@
 @section('filter-section')
 <form>
 	<div class="form-group">
+		<label>Select year</label>
+		<select name="year" id="year" class="form-control">
+			@foreach(range(date("Y"), 2019) as $year)
+				<option value="{{ $year }}"
+					{{ request('year') == $year ? 'selected' : '' }}
+					{{ request('year') == null && $year == date('Y') ? 'selected' : '' }}>
+					{{ $year }}
+				</option>
+			@endforeach
+		</select>
+	</div>
+
+	<div class="form-group">
 		<label>Select month of {{ date('Y') }}</label>
 		<select name="month" id="month" class="form-control">
 			@for($i = 1 ; $i <= 12; $i++)
@@ -54,7 +67,7 @@
 					<tr>
 						<th>#</th>
 						<th>Name</th>
-						<th>Score (Out of 20)</th>
+						<th>Score (out of {{$settings['infraction_score'] ?? 0}})</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -121,7 +134,7 @@
 
 	$('#infractions-table').on('preXhr.dt', function (e, settings, data) {
 		data['employee'] = $('#employeeId').val();
-		data['length'] = 15;
+		data['length'] = 25;
 		data['month'] = $('#month').val();
 	});
 
@@ -198,7 +211,7 @@
 	
 	$(document).ready(function () {
 			$('#employees-table').DataTable({
-				"pageLength": 15
+				"pageLength": 25
 			});
 		});
 </script>

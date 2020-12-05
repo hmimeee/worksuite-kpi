@@ -23,19 +23,36 @@
 <div class="row">
 @section('filter-section')
 <form>
-		<div class="form-group">
-			<label>Select month of {{date('Y')}}</label>
-			<select name="month" id="month" class="form-control">
-				@for($i = 1 ; $i <= 12; $i++)
-				<option value="{{$i}}" {{request('month') == $i ? 'selected' : ''}} {{request('month') == null && $i == date('m') ? 'selected' : ''}}>{{date("F",strtotime(date("Y")."-".$i."-01"))}}</option>
-				@endfor
-			</select>
-		</div>
-		
-		<div class="form-group">
-			<button class="btn btn-success btn-sm">Apply</button>
-			<a href="{{request()->url()}}" class="btn btn-inverse btn-sm">Reset</a>
-		</div>
+	<div class="form-group">
+		<label>Select year</label>
+		<select name="year" id="year" class="form-control">
+			@foreach(range(date("Y"), 2019) as $year)
+				<option value="{{ $year }}"
+					{{ request('year') == $year ? 'selected' : '' }}
+					{{ request('year') == null && $year == date('Y') ? 'selected' : '' }}>
+					{{ $year }}
+				</option>
+			@endforeach
+		</select>
+	</div>
+
+	<div class="form-group">
+		<label>Select month of {{ date('Y') }}</label>
+		<select name="month" id="month" class="form-control">
+			@for($i = 1 ; $i <= 12; $i++)
+				<option value="{{ $i }}"
+					{{ request('month') == $i ? 'selected' : '' }}
+					{{ request('month') == null && $i == date('m') ? 'selected' : '' }}>
+					{{ date("F",strtotime(date("Y")."-".$i."-01")) }}
+				</option>
+			@endfor
+		</select>
+	</div>
+
+	<div class="form-group">
+		<button class="btn btn-success btn-sm">Apply</button>
+		<a href="{{ request()->url() }}" class="btn btn-inverse btn-sm">Reset</a>
+	</div>
 </form>
 		@endsection
 	<div class="col-lg-5">
