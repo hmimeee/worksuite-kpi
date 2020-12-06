@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\KPI\DataTables;
+namespace Modules\KPI\Datatables;
 
 use Carbon\Carbon;
 use Yajra\DataTables\Html\Button;

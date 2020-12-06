@@ -10,10 +10,36 @@ use Carbon\Carbon;
 use Modules\KPI\Entities\Setting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Modules\Article\Entities\Article;
+use Modules\KPI\Entities\AllowedUser;
+use Modules\Article\Entities\ArticleActivityLog;
 
 class Employee extends User
 {
     protected $table = 'users';
+
+    public function hasKPIAccess()
+    {
+        return $this->belongsTo(AllowedUser::class, 'user_id') ? true : false;
+    }
+
+    public function completedArticles()
+    {
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+
+        $date = Carbon::createFromDate($year, $month, date('d'));
+        $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');
+        $endDate = $date->endOfMonth()->format('Y-m-d H:i:s');
+
+        $artIds = ArticleActivityLog::where('label', 'article_writing_status')
+        ->where('details', 'submitted the article for approval.')
+        ->whereBetween('created_at', [$startDate, $endDate])
+        ->where('user_id', $this->id)
+        ->pluck('article_id');
+
+        return $this->hasMany(Article::class, 'assignee')->whereIn('id', $artIds);
+    }
     
     public function leaves()
     {
@@ -35,6 +61,18 @@ class Employee extends User
         $expIDs[] = 1;
 
         return $query->whereNotIn('id', $expIDs);
+    }
+
+    public function getCompletedTasks()
+    {
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+
+        $date = Carbon::createFromDate($year, $month, date('d'));
+        $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');
+        $endDate = $date->endOfMonth()->format('Y-m-d H:i:s');
+
+        return $this->belongsToMany(Task::class, 'task_users', 'user_id')->whereBetween('completed_on', [$startDate, $endDate])->where('board_column_id', 2);
     }
 
     public function finishedCreatedTasks()
@@ -67,15 +105,6 @@ class Employee extends User
              $score = $baseScore;
         }
         return number_format($score,1);
-    }
-
-    public function getCompletedTasks()
-    {
-        $year = request()->year ?? date('Y');
-        $month = request()->month ?? date('m');
-        $date = Carbon::createFromDate($year, $month, date('d'));
-
-        return $this->belongsToMany(Task::class, 'task_users', 'user_id')->whereBetween('completed_on', [$date->firstOfMonth()->format('Y-m-d H:i:s'), $date->endOfMonth()->format('Y-m-d H:i:s')])->where('board_column_id', 2);
     }
 
 
@@ -130,7 +159,7 @@ class Employee extends User
             $tasks = $employee->finishedCreatedTasks;
             $faults = 0;
             foreach ($tasks as $task) {
-                if ($task->isApproved && $task->due_date->format('Ymd') - $task->isApproved->created_at->format('Ymd') > 1) {
+                if ($task->isApproved && $task->due_date->format('Ymd') - $task->isApproved->created_at->format('Ymd') > 2) {
                     $faults += 1;
                 }
             }
@@ -138,7 +167,7 @@ class Employee extends User
             $score = $score - ($deduct * $faults);
         }
 
-        if ($tasks->count() <= 0) {
+        if ($tasks->count() == 0) {
             $score = 0;
         }
 
@@ -200,7 +229,7 @@ class Employee extends User
         $startDate = $date->firstOfMonth()->format('Y-m-d');
         $endDate = $date->endOfMonth()->format('Y-m-d');
 
-        if ($dbData == null || $dbData->updated_at->diffInHours(now()) > 6) {
+        if ($dbData == null || $dbData->updated_at->diffInHours(now()) > 2) {
             $response = Http::withBasicAuth("faisal@viserx.com", "qsu9VC\-`'V")
             ->get('https://www.webwork-tracker.com/rest-api/reports/daily-timeline', [
                 'start_date' => now()->firstOfMonth()->format('Y-m-d'),
@@ -327,6 +356,7 @@ class Employee extends User
 
             if ($hasLeave == null) {
                 //Hour * 60 + Minutes = Total Minutes
+                $allowedTime = Setting::value('allowed_time');
                 $startTime = Setting::value('start_time', 'time')->format('H') * 60 + Setting::value('start_time', 'time')->format('i') ?? 670;
                 $endTime = Setting::value('end_time', 'time')->format('H') * 60 + Setting::value('end_time', 'time')->format('i') ?? 1139;
                 $breakEnd = Setting::value('end_break_time', 'time')->format('H') * 60 + Setting::value('end_break_time', 'time')->format('i') ?? 905;
@@ -334,7 +364,7 @@ class Employee extends User
                 //Check if the user start office after 11:10 am
                 if ($start > $startTime) {
                     //Check the delayed time in minutes
-                    $late = $start - $startTime;
+                    $late = ($start - $startTime) - $allowedTime;
 
                     //Check if the user end office before or exact 07:00 pm
                     if ($end <= $endTime) {
@@ -351,7 +381,7 @@ class Employee extends User
                 //Check if the user end office before 07:00 pm
                 if ($checkedDate != $date && $end < $endTime) {
                     //Check the early time in minutes
-                    $early = $endTime - $end;
+                    $early = ($endTime - $end) - $allowedTime;
 
                     //Check if the user start office after 11:10 am
                     if ($start > $startTime) {

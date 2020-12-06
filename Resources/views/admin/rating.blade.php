@@ -52,6 +52,7 @@
 	<div class="form-group">
 		<button class="btn btn-success btn-sm">Apply</button>
 		<a href="{{ request()->url() }}" class="btn btn-inverse btn-sm">Reset</a>
+		<input type="hidden" name="employee" value="{{request()->employee ?? auth()->id()}}" id="employeeId">
 	</div>
 </form>
 		@endsection
@@ -65,7 +66,7 @@
 							<th>#</th>
 							<th>Name</th>
 							<th>Rating</th>
-							<th>Ontime Score (Out of 20)</th>
+							<th>Ontime Score (out of {{$settings['work_score'] ?? 0}})</th>
 						</tr>
 					</thead>
 					<tbody id="list">
@@ -93,8 +94,30 @@
 		<div class="white-box">
 			<div class="p-10">
 				<h4 class="block-head">User Tasks</h4>
-				{!! $dataTable->table(['class' => 'table table-bordered table-hover toggle-circle default footable-loaded footable']) !!}
-					<input type="hidden" name="employee" value="{{auth()->id()}}" id="employeeId">
+				<table class="table table-bordered table-hover" id="tasks-table">
+					<thead>
+						<tr role="row">
+							<th>#</th>
+							<th>Heading</th>
+							<th>Rating</th>
+							<th>Users</th>
+						</tr>
+					</thead>
+					<tbody id="list">
+						@foreach($tasks as $task)
+							<tr>
+								<td>{{ $task['id'] }}</td>
+								<td>{!! $task['heading'] !!}</a></td>
+								<td>
+									{!! $task['rating'] !!}
+								</td>
+								<td>
+									{!! $task['assignee'] !!}
+								</td>
+							</tr>
+						@endforeach
+					</tbody>
+				</table>
 			</div>
 		</div>
 	</div>
@@ -123,29 +146,70 @@
 @endsection
 
 @push('footer-script')
-	<script src="{{ asset('plugins/bower_components/datatables/jquery.dataTables.min.js') }}">
-	</script>
+	<script src="{{ asset('plugins/bower_components/datatables/jquery.dataTables.min.js') }}"></script>
 	<script src="https://cdn.datatables.net/1.10.13/js/dataTables.bootstrap.min.js"></script>
-	<script src="https://cdn.datatables.net/responsive/2.1.1/js/dataTables.responsive.min.js"></script>
-	<script src="{{ asset('plugins/bower_components/custom-select/custom-select.min.js') }}">
-	</script>
-	<script
-		src="{{ asset('plugins/bower_components/bootstrap-select/bootstrap-select.min.js') }}">
-	</script>
-	<script src="https://cdn.datatables.net/buttons/1.0.3/js/dataTables.buttons.min.js"></script>
-	<script src="{{ asset('js/datatables/buttons.server-side.js') }}"></script>
-
-	{!! $dataTable->scripts() !!}
+	<script src="{{ asset('plugins/bower_components/custom-select/custom-select.min.js') }}"></script>
+	<script src="{{ asset('plugins/bower_components/bootstrap-select/bootstrap-select.min.js') }}"></script>
 
 	<script>
-	function userTasks(id) {
-		$('#employeeId').val(id);
-		window.scrollTo({
-			top: 0,
-			behavior: 'smooth'
-		});
-		reloadTable();
-	};
+	// function userTasks(id) {
+	// 	$('#employeeId').val(id);
+	// 	window.scrollTo({
+	// 		top: 0,
+	// 		behavior: 'smooth'
+	// 	});
+	// 	reloadTable();
+	// };
+
+	// $(document).ready(function () {
+	// 		$('#employees-table').DataTable({
+	// 			"pageLength": 25
+	// 		});
+
+	// 		tableReload();
+	// 	});
+
+	// 	function tableReload() {
+	// 		url = '{{route('admin.kpi.attendances.userData', ':id')}}';
+	// 		url = url.replace(':id', $('#userData').val());
+	// 		$.ajax({
+	// 			method: 'GET',
+	// 			url: url,
+	// 			data: {
+	// 				'month': '{{request()->month}}',
+	// 				'year': '{{request()->year}}',
+	// 				'array': true,
+	// 			},
+	// 			success: function (res) {
+	// 				timeTable(res);
+	// 			}
+	// 		});
+	// 	}
+
+	// 	function userData(id, name = null) {
+	// 		$('#userData').val(id);
+	// 		$('#userName').text(name);
+	// 		$('#tasks-table').DataTable().clear().destroy();
+	// 		tableReload();
+	// 	}
+
+	// 	function timeTable(data) {
+	// 		$('#tasks-table').DataTable({
+	// 			"pageLength": 25,
+	// 			"data": data,
+	// 			columns: [
+	// 				{
+	// 					data: 'id'
+	// 				},
+	// 				{
+	// 					data: 'heading'
+	// 				},
+	// 				{
+	// 					data: 'users'
+	// 				}
+	// 			]
+	// 		});
+	// 	}
 
 		function showTask(id) {
 			$(".right-sidebar").slideDown(50).addClass("shw-rside");
@@ -167,19 +231,13 @@
 			});
 		}
 
-		 $('#tasks-table').on('preXhr.dt', function (e, settings, data) {
-			data['employee'] = $('#employeeId').val();
-			data['length'] = 15;
-			data['month'] = $('#month').val();
-		 });
-
-		function reloadTable() {
-			window.LaravelDataTables["tasks-table"].draw();
-		}
-
 		$(document).ready(function () {
 			$('#employees-table').DataTable({
-				"pageLength": 15
+				"pageLength": 25
+			});
+
+			$('#tasks-table').DataTable({
+				"pageLength": 25
 			});
 		});
 	</script>

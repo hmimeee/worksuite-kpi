@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\KPI\DataTables;
+namespace Modules\KPI\Datatables;
 
 use App\Task;
 use Carbon\Carbon;
@@ -68,17 +68,25 @@ class RatingsDataTable extends DataTable
      */
     public function query(Task $model)
     {
-        $date = request()->month ? Carbon::createFromDate(date('Y'), request()->month, 1) : Carbon::now();
-        $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');
-        $endDate = $date->endOfMonth()->format('Y-m-d H:i:s');
-        $model = $model->whereBetween('completed_on', [$startDate, $endDate])->where('board_column_id', 2);
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+        $date = request()->month ? Carbon::createFromDate($year, $month, date('d')) : Carbon::now();
+        $startDate = $date->firstOfMonth()->format('Y-m-d H:i');
+        $endDate = $date->endOfMonth()->format('Y-m-d H:i');
+
+        $model = Task::join('task_users', 'task_users.task_id', '=', 'tasks.id')
+        ->leftJoin('users as creator_user', 'creator_user.id', '=', 'tasks.created_by')
+        ->select('tasks.*', 'task_users.user_id')
+        ->groupBy('tasks.id');
+
+
+        $model = $model->where('tasks.board_column_id', 2)->whereBetween('tasks.completed_on', [$startDate, $endDate]);
 
         if (request()->employee) {
-            $model = $model->with('users')->whereHas('users', function ($q) {
-                return $q->where('users.id', request()->employee);
-            });
+            $model = $model->where('task_users.user_id', request()->employee)
+            ->orWhere('tasks.created_by', request()->employee);
         }
-
+        // dd($model->get());
 
         return $model;
     }
