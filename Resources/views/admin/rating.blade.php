@@ -73,7 +73,7 @@
 						@foreach($employees as $employee)
 							<tr>
 								<td>{{$employee->id }}</td>
-								<td><a href="javascript:;" onclick="userTasks('{{$employee->id }}')">{{ $employee->name }}</a></td>
+								<td><a href="javascript:;" onclick="userTasks('{{$employee->id }}', '{{ $employee->name }}')">{{ $employee->name }}</a></td>
 								<td>
 									@php($html = Modules\KPI\Entities\Employee::taskRating($employee->id))
 									{!!$html!!}
@@ -93,14 +93,17 @@
 	<div class="col-lg-7">
 		<div class="white-box">
 			<div class="p-10">
-				<h4 class="block-head">User Tasks</h4>
+				<h4 class="block-head">
+					<span class="text-info text-bold" id="userName">
+						{{\App\User::find(request()->employee)->name ?? auth()->user()->name}}</span>'s
+						Tasks</h4>
 				<table class="table table-bordered table-hover" id="tasks-table">
 					<thead>
 						<tr role="row">
-							<th>#</th>
+							<th style="width: 20px;">#</th>
 							<th>Heading</th>
-							<th>Rating</th>
-							<th>Users</th>
+							<th style="width: 50px;">Rating</th>
+							<th style="width: 100px;">Users</th>
 						</tr>
 					</thead>
 					<tbody id="list">
@@ -152,15 +155,6 @@
 	<script src="{{ asset('plugins/bower_components/bootstrap-select/bootstrap-select.min.js') }}"></script>
 
 	<script>
-	// function userTasks(id) {
-	// 	$('#employeeId').val(id);
-	// 	window.scrollTo({
-	// 		top: 0,
-	// 		behavior: 'smooth'
-	// 	});
-	// 	reloadTable();
-	// };
-
 	// $(document).ready(function () {
 	// 		$('#employees-table').DataTable({
 	// 			"pageLength": 25
@@ -169,52 +163,66 @@
 	// 		tableReload();
 	// 	});
 
-	// 	function tableReload() {
-	// 		url = '{{route('admin.kpi.attendances.userData', ':id')}}';
-	// 		url = url.replace(':id', $('#userData').val());
-	// 		$.ajax({
-	// 			method: 'GET',
-	// 			url: url,
-	// 			data: {
-	// 				'month': '{{request()->month}}',
-	// 				'year': '{{request()->year}}',
-	// 				'array': true,
-	// 			},
-	// 			success: function (res) {
-	// 				timeTable(res);
-	// 			}
-	// 		});
-	// 	}
+		function userTasks(id, name = null) {
+			$('#employeeId').val(id);
+			window.scrollTo({
+				top: 0,
+				behavior: 'smooth'
+			});
 
-	// 	function userData(id, name = null) {
-	// 		$('#userData').val(id);
-	// 		$('#userName').text(name);
-	// 		$('#tasks-table').DataTable().clear().destroy();
-	// 		tableReload();
-	// 	}
+			if (name) {
+			$('#userName').text(name);
+			}
+			$('#tasks-table').DataTable().clear().destroy();
+			tableReload();
+		}
 
-	// 	function timeTable(data) {
-	// 		$('#tasks-table').DataTable({
-	// 			"pageLength": 25,
-	// 			"data": data,
-	// 			columns: [
-	// 				{
-	// 					data: 'id'
-	// 				},
-	// 				{
-	// 					data: 'heading'
-	// 				},
-	// 				{
-	// 					data: 'users'
-	// 				}
-	// 			]
-	// 		});
-	// 	}
+		function tableReload() {
+			url = '{{route('admin.kpi.rating.tasks')}}';
+			$.ajax({
+				method: 'GET',
+				url: url,
+				data: {
+					'month': '{{request()->month}}',
+					'year': '{{request()->year}}',
+					'employee': $('#employeeId').val(),
+				},
+				success: function (res) {
+					tasksTable(res);
+				}
+			});
+		}
 
-		function showTask(id) {
+		function tasksTable(data) {
+			$('#tasks-table').DataTable({
+				"pageLength": 25,
+				"data": data,
+				columns: [
+					{
+						data: 'id'
+					},
+					{
+						data: 'heading'
+					},
+					{
+						data: 'rating'
+					},
+					{
+						data: 'assignee'
+					}
+				]
+			});
+		}
+
+		function showTask(id, type = null) {
 			$(".right-sidebar").slideDown(50).addClass("shw-rside");
 			url = '{{ route('admin.all-tasks.show', ':id') }}';
 			url = url.replace(':id', id);
+
+			if (type) {
+				url = '{{ route('member.article.showModal', ':id') }}';
+				url = url.replace(':id', id);
+			}
 
 			$.easyAjax({
 				type: 'GET',
@@ -230,15 +238,5 @@
 				}
 			});
 		}
-
-		$(document).ready(function () {
-			$('#employees-table').DataTable({
-				"pageLength": 25
-			});
-
-			$('#tasks-table').DataTable({
-				"pageLength": 25
-			});
-		});
 	</script>
 @endpush

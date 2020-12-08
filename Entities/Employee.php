@@ -4,8 +4,11 @@ namespace Modules\KPI\Entities;
 
 use App\Task;
 use App\User;
+use DateTime;
 use App\Leave;
+use DatePeriod;
 use App\Holiday;
+use DateInterval;
 use Carbon\Carbon;
 use Modules\KPI\Entities\Setting;
 use Illuminate\Support\Facades\DB;
@@ -29,21 +32,45 @@ class Employee extends User
         $month = request()->month ?? date('m');
 
         $date = Carbon::createFromDate($year, $month, date('d'));
+        if ($date->format('Ym') < 202012) {
+            $date = now();
+        }
         $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');
         $endDate = $date->endOfMonth()->format('Y-m-d H:i:s');
 
         $artIds = ArticleActivityLog::where('label', 'article_writing_status')
         ->where('details', 'submitted the article for approval.')
         ->whereBetween('created_at', [$startDate, $endDate])
-        ->where('user_id', $this->id)
+        // ->where('user_id', $this->id)
         ->pluck('article_id');
 
         return $this->hasMany(Article::class, 'assignee')->whereIn('id', $artIds);
     }
+
+    public function completedCreatedArticles()
+    {
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+
+        $date = Carbon::createFromDate($year, $month, date('d'));
+        if ($date->format('Ym') < 202012) {
+            $date = now();
+        }
+        $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');
+        $endDate = $date->endOfMonth()->format('Y-m-d H:i:s');
+
+        $artIds = ArticleActivityLog::where('label', 'article_writing_status')
+        ->where('details', 'approved the article and transferred for publishing.')
+        ->whereBetween('created_at', [$startDate, $endDate])
+        // ->where('user_id', $this->id)
+        ->pluck('article_id');
+
+        return $this->hasMany(Article::class, 'creator')->whereIn('id', $artIds);
+    }
     
     public function leaves()
     {
-        return $this->hasMany(Leave::class, 'user_id');
+        return $this->hasMany(Leave::class, 'user_id')->where('status', 'approved');
     }
 
     public function scopeActive($query)
@@ -69,6 +96,9 @@ class Employee extends User
         $month = request()->month ?? date('m');
 
         $date = Carbon::createFromDate($year, $month, date('d'));
+        if ($date->format('Ym') < 202012) {
+            $date = now();
+        }
         $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');
         $endDate = $date->endOfMonth()->format('Y-m-d H:i:s');
 
@@ -81,6 +111,9 @@ class Employee extends User
         $month = request()->month ?? date('m');
 
         $date = Carbon::createFromDate($year, $month, date('d'));
+        if ($date->format('Ym') < 202012) {
+            $date = now();
+        }
         return $this->hasMany(Task::class, 'created_by')->whereBetween('completed_on', [$date->firstOfMonth()->format('Y-m-d H:i:s'), $date->endOfMonth()->format('Y-m-d H:i:s')])->where('board_column_id', 2);
     }
 
@@ -90,6 +123,9 @@ class Employee extends User
         $month = request()->month ?? date('m');
 
         $date = Carbon::createFromDate($year, $month, date('d'));
+        if ($date->format('Ym') < 202012) {
+            $date = now();
+        }
         $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');
         $endDate = $date->endOfMonth()->format('Y-m-d H:i:s');
 
@@ -104,6 +140,11 @@ class Employee extends User
         if ($infractions->count() <= 0) {
              $score = $baseScore;
         }
+
+        $attendance = Employee::userTrackedData($id);
+        if ($attendance->count() == 0) {
+            $score = 0;
+        }
         return number_format($score,1);
     }
 
@@ -112,7 +153,11 @@ class Employee extends User
     {
         $employee = Employee::find($id);
         $tasks = $employee->getCompletedTasks->where('rating', '<>', null);
-        $rating = $tasks->count() ? $tasks->sum('rating') / $tasks->count() : 0;
+        $articles =  $employee->completedArticles->where('rating', '<>', null);
+        $allRating = $articles->sum('rating') + $tasks->sum('rating');
+        $count = $tasks->count() + $articles->count();
+        $avgRating = $count ? $allRating / $count : 0;
+        $rating = $avgRating;
         $html = '';
         foreach (range(1, 5) as $i) {
             $html .= '<span class="fa-stack" style="width:1em"><i class="fa fa-star fa-stack-1x"></i>';
@@ -126,7 +171,7 @@ class Employee extends User
             $rating--;
             $html .= '</span>';
         }
-        $rating = number_format($tasks->count() ? $tasks->sum('rating') / $tasks->count() : 0, 1);
+        $rating = number_format($avgRating, 1);
         $html .= ' (' . $rating . ')';
 
         if ($json) {
@@ -140,26 +185,86 @@ class Employee extends User
     {
         $employee = Employee::find($id);
         $tasks = $employee->getCompletedTasks;
+        $articles =  $employee->completedArticles;
+        $createdArticles =  $employee->completedCreatedArticles;
         $createdTasks = $employee->finishedCreatedTasks;
         $baseScore = Setting::value('work_score', 'number') ?? 0;
         $score = number_format($baseScore, 1);
-        $deduct = $tasks->count() ? $baseScore / $tasks->count() : 0;
+        $totalWorks = $tasks->count() + $articles->count();
+        $deduct = $totalWorks ? $baseScore /  $totalWorks : 0;
 
         if ($tasks->count() > 0) {
             $faults = 0;
             foreach ($tasks as $item) {
-                if ($item->due_date->format('Ymd') < $item->completed_on->format('Ymd')) {
+                $period = new DatePeriod(
+                    new DateTime($item->due_date->format('Y-m-d')),
+                    new DateInterval('P1D'),
+                    new DateTime($item->due_date->addDays(6)->format('Y-m-d'))
+                );
+                $leaves = $employee->leaves;
+
+                foreach ($period as $pdate) {
+                    $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
+                    if (!$dleave) {
+                        $setDate = $pdate;
+                        break;
+                    }
+                }
+                
+                if ($setDate->format('Ymd') < $item->completed_on->format('Ymd')) {
                     $faults += 1 / $item->users->count();
                 }
             }
             $score = $baseScore - ($deduct * $faults);
         }
 
-        if ($createdTasks->count() > 0) {
-            $tasks = $employee->finishedCreatedTasks;
+        if ($articles->count() > 0) {
             $faults = 0;
-            foreach ($tasks as $task) {
-                if ($task->isApproved && $task->due_date->format('Ymd') - $task->isApproved->created_at->format('Ymd') > 2) {
+            foreach ($articles as $art) {
+                $due = Carbon::createFromFormat('Y-m-d', $art->writing_deadline);
+                $completed = $art->logs->where('details', 'submitted the article for approval.')->last()->created_at ?? null;
+                $period = new DatePeriod(
+                    new DateTime($due->format('Y-m-d')),
+                    new DateInterval('P1D'),
+                    new DateTime($due->addDays(6)->format('Y-m-d'))
+                );
+                $leaves = $employee->leaves;
+
+                foreach ($period as $pdate) {
+                    $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
+                    if (!$dleave) {
+                        $setDate = $pdate;
+                        break;
+                    }
+                }
+
+                if ($completed != null && $setDate->format('Ymd') < $completed->format('Ymd')) {
+                    $faults += 1;
+                }
+            }
+            
+            $score = $baseScore - ($deduct * $faults);
+        }
+
+        if ($createdTasks->count() > 0) {
+            $faults = 0;
+            foreach ($createdTasks as $task) {
+                $period = new DatePeriod(
+                    new DateTime($task->completed_on->format('Y-m-d')),
+                    new DateInterval('P1D'),
+                    new DateTime($task->completed_on->addDays(6)->format('Y-m-d'))
+                );
+                $leaves = $employee->leaves;
+
+                foreach ($period as $pdate) {
+                    $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
+                    if (!$dleave) {
+                        $setDate = $pdate;
+                        break;
+                    }
+                }
+
+                if ($task->isApproved && $task->created_by != $employee->id && $task->isApproved->created_at->format('Ymd') - $setDate > 2) {
                     $faults += 1;
                 }
             }
@@ -167,7 +272,38 @@ class Employee extends User
             $score = $score - ($deduct * $faults);
         }
 
-        if ($tasks->count() == 0) {
+        if ($createdArticles->count() > 0) {
+            $faults = 0;
+            foreach ($createdArticles as $arti) {
+                $completed = $arti->logs->where('details', 'submitted the article for approval.')->last()->created_at ?? null;
+                $approved = $arti->logs->where('details', 'approved the article and transferred for publishing.')->first()->created_at ?? null;
+                if ($completed) {
+                    $period = new DatePeriod(
+                        new DateTime($completed->format('Y-m-d')),
+                        new DateInterval('P1D'),
+                        new DateTime($completed->addDays(6)->format('Y-m-d'))
+                    );
+                    $leaves = $employee->leaves;
+
+                    foreach ($period as $pdate) {
+                        $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
+                        if (!$dleave) {
+                            $setDate = $pdate;
+                            break;
+                        }
+                    }
+                }
+
+                if ($completed != null && $approved != null && $arti->creator != $employee->id && $approved->format('Ymd') - $setDate->format('Ymd') > 2) {
+                    $faults += 1;
+                }
+            }
+
+            $score = $baseScore - ($deduct * $faults);
+        }
+
+        $allCount = $tasks->count()+ $articles->count()+$createdArticles->count()+$createdTasks->count();
+        if ($allCount == 0) {
             $score = 0;
         }
 
@@ -230,7 +366,8 @@ class Employee extends User
         $endDate = $date->endOfMonth()->format('Y-m-d');
 
         if ($dbData == null || $dbData->updated_at->diffInHours(now()) > 2) {
-            $response = Http::withBasicAuth("faisal@viserx.com", "qsu9VC\-`'V")
+            // $response = Http::withBasicAuth("faisal@viserx.com", "qsu9VC\-`'V")
+            $response = Http::withBasicAuth("faisal@viserx.com", "nv3ba7rvo2hlfymx1n4byd")
             ->get('https://www.webwork-tracker.com/rest-api/reports/daily-timeline', [
                 'start_date' => now()->firstOfMonth()->format('Y-m-d'),
                 'end_date' => now()->endOfMonth()->format('Y-m-d')
@@ -395,9 +532,10 @@ class Employee extends User
                     }
                 }
                 
-                if ($checkedDate != $date && $breakFinish > $breakEnd && ($breakFinish - $breakBegin) > 65) {
-                    $faults += 1;
-                }
+                //Check if user took more time than break time limit
+                // if ($checkedDate != $date && $breakFinish > $breakEnd && ($breakFinish - $breakBegin) > 65) {
+                //     $faults += 1;
+                // }
             }
         }
 

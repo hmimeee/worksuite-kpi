@@ -59,11 +59,7 @@ class AdminPanelController extends AdminBaseController
                 foreach (range(1, 5) as $i) {
                     $rating .= '<span class="fa-stack" style="width:1em"><i class="fa fa-star fa-stack-1x"></i>';
                     if ($rate > 0) {
-                        if ($rate > 0.5) {
-                            $rating .= '<i class="fa fa-star fa-stack-1x text-warning"></i>';
-                        } else {
-                            $rating .= '<i class="fa fa-star-half fa-stack-1x text-warning" style="margin-left: -3px;"></i>';
-                        }
+                        $rating .= '<i class="fa fa-star fa-stack-1x text-warning"></i>';
                     }
                     $rate--;
                     $rating .= '</span>';
@@ -72,7 +68,7 @@ class AdminPanelController extends AdminBaseController
                 $members = '';
                 foreach ($task->users as $member) {
                     $members .= '<a href="' . route('admin.employees.show', [$member->id]) . '">';
-                    $members .= '<img data-toggle="tooltip" data-original-title="' . ucwords($member->name) . '" src="' . $member->image_url . '"
+                    $members .= '<img data-toggle="tooltip" data-original-title="' . ucwords($member->name) . '" title="' . ucwords($member->name) . '" src="' . $member->image_url . '"
                 alt="user" class="img-circle" width="25" height="25"> ';
                     $members .= '</a>';
                 }
@@ -87,19 +83,15 @@ class AdminPanelController extends AdminBaseController
                 ];
             }
 
-
-            foreach ($employee->completedArticles as $article) {
+            $allArticles = $employee->completedArticles->merge($employee->completedCreatedArticles);
+            foreach ($allArticles as $article) {
 
                 $rate = $article->rating;
                 $rating = '';
                 foreach (range(1, 5) as $i) {
                     $rating .= '<span class="fa-stack" style="width:1em"><i class="fa fa-star fa-stack-1x"></i>';
                     if ($rate > 0) {
-                        if ($rate > 0.5) {
-                            $rating .= '<i class="fa fa-star fa-stack-1x text-warning"></i>';
-                        } else {
-                            $rating .= '<i class="fa fa-star-half fa-stack-1x text-warning" style="margin-left: -3px;"></i>';
-                        }
+                        $rating .= '<i class="fa fa-star fa-stack-1x text-warning"></i>';
                     }
                     $rate--;
                     $rating .= '</span>';
@@ -107,11 +99,11 @@ class AdminPanelController extends AdminBaseController
 
                 $members = '';
                 $members .= '<a href="' . route('admin.employees.show', [$article->assignee]) . '">';
-                $members .= '<img data-toggle="tooltip" data-original-title="' . ucwords($article->getAssignee->name) . '" src="' . $article->getAssignee->image_url . '"
+                $members .= '<img data-toggle="tooltip" data-original-title="' . ucwords($article->getAssignee->name) . '" title="' . ucwords($article->getAssignee->name) . '" src="' . $article->getAssignee->image_url . '"
                 alt="user" class="img-circle" width="25" height="25"> ';
                 $members .= '</a>';
 
-                $heading = "<label class='badge badge-info'>Article:</label> <a href='javascript:;' onclick='showTask($article->id, article)'>$article->title</a>";
+                $heading = '<label class="badge badge-info">Article:</label> <a href="javascript:;" onclick="showTask('.$article->id.', \'article\')">'.$article->title.'</a>';
 
                 $tasks[] = [
                     'id' => $article->id,
@@ -120,6 +112,10 @@ class AdminPanelController extends AdminBaseController
                     'assignee' => $members
                 ];
             }
+        }
+
+        if ($request->ajax()) {
+            return response()->json($tasks);
         }
 
         $this->pageTitle = 'Task Ratings & Ontime Scores';
@@ -187,7 +183,7 @@ class AdminPanelController extends AdminBaseController
             $zip = new ZipArchive;
             $res = $zip->open(public_path('/user-uploads/'.$uploaded));
             if ($res === TRUE) {
-                $zip->extractTo(base_path('Modules\\'));
+                $zip->extractTo(base_path('Modules'));
                 $zip->close();
                 Storage::delete($uploaded);
 
