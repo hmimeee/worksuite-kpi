@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.member-app')
 
 @section('page-title')
 <div class="row bg-title">
@@ -64,8 +64,7 @@
 									</div>
 									<div class="col-xs-9 text-right">
 										<span class="text-muted counter">{{ $item->user->name }}</span><br>
-										<span
-											class="counter">{{ $item->total_score }}</span>
+										<span class="counter">{{ $item->total_score }}</span>
 									</div>
 								</div>
 							</div>
@@ -254,7 +253,8 @@
 				</div>
 			</div>
 		</div>
-
+		
+		@if (auth()->user()->hasKPIAccess)
 		<div class="col-md-12">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">KPI Scores</div>
@@ -296,6 +296,7 @@
 				</div>
 			</div>
 		</div>
+		@endif
 	</div>
 @endsection
 

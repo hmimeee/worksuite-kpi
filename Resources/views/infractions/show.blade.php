@@ -9,7 +9,7 @@
                 <div class="col-xs-6 col-md-3 font-12">
                     <label class="font-12">Employee</label><br>
                     <img src="{{ $infraction->user->image_url }}" class="img-circle" width="25" height="25"> 
-                    <a href="{{route('admin.employees.show', $infraction->user->id)}}">{{$infraction->user->name}}</a>
+                    <a href="{{ $user->hasRole('admin') ? route('admin.employees.show', $infraction->user->id) : route('member.employees.show', $infraction->user->id) }}">{{$infraction->user->name}}</a>
                 </div>
 
                 <div class="col-xs-6 col-md-3 font-12">

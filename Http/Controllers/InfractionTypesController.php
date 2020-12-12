@@ -42,6 +42,7 @@ class InfractionTypesController extends MemberBaseController
             'name' => 'required|string',
             'reduction_points' => 'required|numeric',
         ]);
+        $request['created_by'] = auth()->id();
 
         $type = InfractionType::create($request->all());
 

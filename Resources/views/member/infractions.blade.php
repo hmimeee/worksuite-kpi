@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.member-app')
 
 @section('page-title')
 <div class="row bg-title">
@@ -7,7 +7,9 @@
 	</div>
 
 	<div class="col-lg-4 col-sm-6 col-md-7 col-xs-12 text-right">
+		@if(auth()->user()->hasKPIAccess)
 		<a href="javascript:;" class="btn btn-outline btn-success btn-sm" id="addInfraction">Add Infraction <i class="fa fa-plus" aria-hidden="true"></i></a>
+		@endif
 		<a href="javascript:;" class="btn btn-outline btn-info btn-sm" id="infractionTypes"> Infraction Types</a>
 	</div>
 </div>
@@ -90,7 +92,6 @@
 			<h4 class="block-head">Infractions</h4>
 			<div class="table-responsive">
 				{!! $dataTable->table(['class' => 'table table-bordered table-hover toggle-circle default footable-loaded footable']) !!}
-				<input type="hidden" name="employee" value="{{auth()->id()}}" id="employeeId">
 			</div>
 		</div>
 	</div>
@@ -147,7 +148,7 @@
 	}
 
 	function viewInfraction(id) {
-		url = '{{ route('admin.kpi.infractions.show', ':id')}}';
+		url = '{{ route('member.kpi.infractions.show', ':id')}}';
 		url = url.replace(':id', id);
 
 		$('#modelHeading').html("Infraction Details");
@@ -155,7 +156,7 @@
 	}
 
 	function editInfraction(id){
-		url = '{{ route('admin.kpi.infractions.edit', ':id')}}';
+		url = '{{ route('member.kpi.infractions.edit', ':id')}}';
 		url = url.replace(':id', id);
 
 		$('#modelHeading').html("Infraction Edit");
@@ -163,7 +164,7 @@
 	}
 
 	function deleteInfraction(id){
-		url = '{{ route('admin.kpi.infractions.destroy', ':id')}}';
+		url = '{{ route('member.kpi.infractions.destroy', ':id')}}';
 		url = url.replace(':id', id);
 
 		swal({
@@ -195,13 +196,13 @@
 	}
 
 	$('#addInfraction').click(function(){
-		var url = '{{ route('admin.kpi.infractions.create')}}';
+		var url = '{{ route('member.kpi.infractions.create')}}';
 		$('#modelHeading').html("Add New Infraction");
 		$.ajaxModal('#infractionModal', url);
 	});
 
 	$('#infractionTypes').click(function(){
-		var url = '{{ route('admin.kpi.infraction-types.index')}}';
+		var url = '{{ route('member.kpi.infraction-types.index')}}';
 		$('#modelHeading').html("Infraction Types");
 		$.ajaxModal('#infractionModal', url);
 	});

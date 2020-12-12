@@ -9,6 +9,7 @@ use Modules\KPI\Entities\InfractionType;
 class Infraction extends Model
 {
     protected $fillable = [
+        'creted_by',
     	'user_id',
         'infraction_type_id',
     	'infraction_type',
@@ -19,6 +20,11 @@ class Infraction extends Model
     public $dates = ['created_at', 'updated_at'];
 
     protected $table = 'kpi_infractions';
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'creted_by');
+    }
 
     public function user()
     {

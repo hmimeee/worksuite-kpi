@@ -93,8 +93,11 @@
 
     $('#addInfractionForm').submit(function(e){
         e.preventDefault();
+        @if($user->hasRole('admin'))
         url = '{{route('admin.kpi.infractions.store')}}';
-        console.log(url);
+        @else
+        url = '{{route('member.kpi.infractions.store')}}';
+        @endif
 
         $.easyAjax({
             type: 'POST',

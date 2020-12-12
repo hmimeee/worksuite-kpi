@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\KPI\Http\Controllers\Admin;
+namespace Modules\KPI\Http\Controllers\Member;
 
 use ZipArchive;
 use Illuminate\Http\Request;
@@ -8,18 +8,17 @@ use Illuminate\Http\Response;
 use Froiden\Envato\Helpers\Reply;
 use Modules\KPI\Entities\Setting;
 use Modules\KPI\Entities\Employee;
-use Illuminate\Support\Facades\Http;
-use Modules\KPI\Entities\AllowedUser;
 use Illuminate\Support\Facades\Storage;
 use Modules\KPI\Datatables\RatingsDataTable;
 use Modules\KPI\Datatables\InfractionsDataTable;
-use App\Http\Controllers\Admin\AdminBaseController;
+use App\Http\Controllers\Member\MemberBaseController;
+use Modules\KPI\Entities\AllowedUser;
 
-class AdminPanelController extends AdminBaseController
+class MemberPanelController extends MemberBaseController
 {
     public function __construct()
     {
-        $this->middleware(['auth', 'role:admin']);
+        $this->middleware(['auth', 'role:employee']);
         parent::__construct();
     }
 
@@ -33,8 +32,8 @@ class AdminPanelController extends AdminBaseController
         $this->topScorers = Employee::topFiveScorers();
         $this->employees = Employee::exceptWriters()->active()->get();
         $this->settings = Setting::all()->pluck('value', 'name');
-        
-        return view('kpi::admin.index', $this->data);
+
+        return view('kpi::member.index', $this->data);
     }
 
     /**
@@ -46,8 +45,11 @@ class AdminPanelController extends AdminBaseController
         $this->pageTitle = 'Infractions';
         $this->employees = Employee::exceptWriters()->active()->get();
         $this->settings = Setting::all()->pluck('value', 'name');
-        
-        return $dataTable->render('kpi::admin.infractions', $this->data);
+        if (!auth()->user()->hasKPIAccess) {
+            $this->employees = Employee::where('id', auth()->id())->get();
+        }
+
+        return $dataTable->render('kpi::member.infractions', $this->data);
     }
 
     /**
@@ -74,7 +76,7 @@ class AdminPanelController extends AdminBaseController
 
                 $members = '';
                 foreach ($task->users as $member) {
-                    $members .= '<a href="' . route('admin.employees.show', [$member->id]) . '">';
+                    $members .= '<a href="' . route('member.employees.show', [$member->id]) . '">';
                     $members .= '<img data-toggle="tooltip" data-original-title="' . ucwords($member->name) . '" title="' . ucwords($member->name) . '" src="' . $member->image_url . '"
                 alt="user" class="img-circle" width="25" height="25"> ';
                     $members .= '</a>';
@@ -105,12 +107,12 @@ class AdminPanelController extends AdminBaseController
                 }
 
                 $members = '';
-                $members .= '<a href="' . route('admin.employees.show', [$article->assignee]) . '">';
+                $members .= '<a href="' . route('member.employees.show', [$article->assignee]) . '">';
                 $members .= '<img data-toggle="tooltip" data-original-title="' . ucwords($article->getAssignee->name) . '" title="' . ucwords($article->getAssignee->name) . '" src="' . $article->getAssignee->image_url . '"
                 alt="user" class="img-circle" width="25" height="25"> ';
                 $members .= '</a>';
 
-                $heading = '<label class="badge badge-info">Article:</label> <a href="javascript:;" onclick="showTask('.$article->id.', \'article\')">'.$article->title.'</a>';
+                $heading = '<label class="badge badge-info">Article:</label> <a href="javascript:;" onclick="showTask(' . $article->id . ', \'article\')">' . $article->title . '</a>';
 
                 $tasks[] = [
                     'id' => $article->id,
@@ -129,8 +131,12 @@ class AdminPanelController extends AdminBaseController
         $this->employees = Employee::exceptWriters()->active()->get();
         $this->settings = Setting::all()->pluck('value', 'name');
         $this->tasks = $tasks;
-        
-        return view('kpi::admin.rating', $this->data);
+
+        if (!auth()->user()->hasKPIAccess) {
+            $this->employees = Employee::where('id', auth()->id())->get();
+        }
+
+        return view('kpi::member.rating', $this->data);
     }
 
 
@@ -145,107 +151,22 @@ class AdminPanelController extends AdminBaseController
         $this->logData = Employee::trackedData();
         $this->settings = Setting::all()->pluck('value', 'name');
         
-        return view('kpi::admin.attendances', $this->data);
+        if (!auth()->user()->hasKPIAccess) {
+            $this->employees = Employee::where('id', auth()->id())->get();
+        }
+
+        return view('kpi::member.attendances', $this->data);
     }
 
 
     public function userData(Employee $user)
     {
+        if (!$user->hasKPIAccess) {
+            $userData = Employee::userTrackedData(auth()->id());
+        }
         $userData = Employee::userTrackedData($user->id);
 
         return $userData;
-    }
-
-    public function settings(Request $request)
-    {
-        if ($request->has('update_setting')) {
-            $settings = $request->only([
-                'start_time',
-                'end_time',
-                'start_break_time',
-                'end_break_time',
-                'attendance_score',
-                'work_score',
-                'infraction_score',
-                'allowed_time'
-            ]);
-
-            foreach ($settings as $key => $value) {
-                Setting::updateOrCreate(['name' => $key], ['value' => $value]);
-            }
-
-            return back()->withSuccess('Settings updated successfully');
-        }
-
-        if ($request->has('update_module') && $request->hasFile('module')) {
-            $file = $request->file('module');
-            $filename = $file->getClientOriginalName();
-            $uploaded = $file->store('temp');
-
-            if (substr($filename, 0, 5) != 'KPI_v') {
-                Storage::delete($uploaded);
-                return Reply::error('Package is not a KPI module!');
-            }
-
-            $zip = new ZipArchive;
-            $res = $zip->open(public_path('/user-uploads/'.$uploaded));
-            if ($res === TRUE) {
-                $zip->extractTo(base_path('Modules'));
-                $zip->close();
-                Storage::delete($uploaded);
-
-                return Reply::success('Successfully updated!');
-            } else {
-                Storage::delete($uploaded);
-                return Reply::error('Something went wrong!');
-            }
-        }
-
-        if ($request->has('add_allowed_users') && $request->allowed_users != null && $request->allowed_users != '') {
-            foreach ($request->allowed_users as $userId) {
-                $addedUsers[] = AllowedUser::updateOrCreate([
-                    'user_id' => $userId
-                ]);
-            }
-
-            return isset($addedUsers) ? Reply::success('Added successfully') : Reply::error('Something went wrong');
-        }
-
-        if ($request->has('remove_permission')) {
-            AllowedUser::find($request->allowed_user)->delete();
-            return Reply::success('Removed successfully');
-        }
-
-        $this->pageTitle = 'KPI: Settings';
-        $this->settings = Setting::all()->pluck('value', 'name');
-        $this->allowedUsers = AllowedUser::all();
-        $this->employees = Employee::exceptWriters()->active()->whereNotIn('id', $this->allowedUsers->pluck('user_id'))->get();
-
-        return view('kpi::admin.settings', $this->data);
-    }
-
-    public function testing()
-    {
-        $fromTime = Setting::value('start_break_time', 'time')->format('h:i a');
-
-        dd($fromTime);
-        $response = Http::withBasicAuth("faisal@viserx.com", "nv3ba7rvo2hlfymx1n4byd")
-        ->get('https://www.webwork-tracker.com/rest-api/reports/daily-timeline', [
-            'start_date' => now()->firstOfMonth()->format('Y-m-d'),
-            'end_date' => now()->format('Y-m-d')
-        ]);
-
-        $data = $response->json();
-        foreach ($data['dateReport'] as $key => $value) {
-            $tracked[$value['dateTracked']][$value['email']][] = $value['projects'][0]['tasks'][0]['timeEntries'][0]['endDatetime'];
-            // foreach ($value['projects'][0]['tasks'] as $key => $time) {
-            //     dd($time);
-            //     $tracked[] = $time['timeEntries'][0]['beginDatetime'];
-            // }
-        }
-        $data['dateReport'][0]['projects'][0]['tasks'][0]['timeEntries'][0];
-
-        dd($tracked);
     }
 
     /**

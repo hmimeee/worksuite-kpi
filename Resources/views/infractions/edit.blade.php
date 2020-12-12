@@ -94,7 +94,11 @@
 
     $('#editInfractionForm').submit(function(e){
         e.preventDefault();
+        @if($user->hasRole('admin'))
         url = '{{route('admin.kpi.infractions.update', $infraction->id)}}';
+        @else
+        url = '{{route('member.kpi.infractions.update', $infraction->id)}}';
+        @endif
 
         $.easyAjax({
             type: 'POST',

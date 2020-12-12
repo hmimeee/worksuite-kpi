@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.member-app')
 
 @section('page-title')
 <div class="row bg-title">
@@ -179,7 +179,7 @@
 		}
 
 		function tableReload() {
-			url = '{{route('admin.kpi.rating.tasks')}}';
+			url = '{{route('member.kpi.rating.tasks')}}';
 			$.ajax({
 				method: 'GET',
 				url: url,
@@ -217,7 +217,7 @@
 
 		function showTask(id, type = null) {
 			$(".right-sidebar").slideDown(50).addClass("shw-rside");
-			url = '{{ route('admin.all-tasks.show', ':id') }}';
+			url = '{{ route('member.all-tasks.show', ':id') }}';
 			url = url.replace(':id', id);
 
 			if (type) {

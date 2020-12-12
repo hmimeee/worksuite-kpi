@@ -71,10 +71,12 @@
                     <td>{{number_format($type->reduction_points, 2)}}</td>
                     <td>{{$type->details}}</td>
                     <td>
+                        @if(auth()->user()->hasKPIAccess && auth()->user()->hasRole('admin'))
                         <div class="btn-group">
                             <a href="javascript:;" id="editInfractionType" data-id="{{$type->id}}" class="btn btn-xs btn-info">Edit</a>
                             <a href="javascript:;" id="deleteInfractionType" data-id="{{$type->id}}" class="btn btn-xs btn-danger">Delete</a>
                         </div>
+                        @endif
                     </td>
                 </tr>
                 @endforeach
@@ -83,10 +85,13 @@
     </div>
 </div>
 <div class="modal-footer">
-    <button class="btn btn-success btn-sm" id="addInfractionType">Add Type <i class="fa fa-plus" aria-hidden="true"></i></button>
+    @if(auth()->user()->hasKPIAccess)
+    <button class="btn btn-success btn-sm" id="addInfractionType">Add Type <i class="fa fa-plus"aria-hidden="true"></i></button>
+    @endif
     <button type="button" class="btn default btn-sm" data-dismiss="modal">Close</button>
 </div>
 
+@if(auth()->user()->hasKPIAccess)
 <script type="text/javascript">
     $('#addInfractionType').click(function(e){
         e.preventDefault();
@@ -109,7 +114,11 @@
     $('#addInfractionTypeForm').submit(function(e){
         e.preventDefault();
         data = $(this).serialize();
+        @if($user->hasRole('admin'))
         url = '{{route('admin.kpi.infraction-types.store')}}';
+        @else
+        url = '{{route('member.kpi.infraction-types.store')}}';
+        @endif
 
         $.easyAjax({
             type: 'POST',
@@ -126,7 +135,11 @@
     $('#editInfractionTypeForm').submit(function(e){
         e.preventDefault();
         data = $(this).serialize();
+        @if($user->hasRole('admin'))
         url = '{{ route('admin.kpi.infraction-types.update', ':id')}}';
+        @else
+        url = '{{ route('member.kpi.infraction-types.update', ':id')}}';
+        @endif
         url = url.replace(':id', $(this).data('id'));
 
         $.easyAjax({
@@ -142,7 +155,11 @@
     })
 
     $('#infractionModal #editInfractionType').click(function(){
+        @if($user->hasRole('admin'))
         url = '{{ route('admin.kpi.infraction-types.edit', ':id')}}';
+        @else
+        url = '{{ route('member.kpi.infraction-types.edit', ':id')}}';
+        @endif
         url = url.replace(':id', $(this).data('id'));
         $('tr.active').removeClass('active');
         $(this).parent().parent().parent().addClass('active');
@@ -181,6 +198,11 @@
                 if (isConfirm) {
 
                     var url = "{{ route('admin.kpi.infraction-types.destroy',':id') }}";
+                    @if($user->hasRole('admin'))
+                    var url = "{{ route('admin.kpi.infraction-types.destroy',':id') }}";
+                    @else
+                    var url = "{{ route('member.kpi.infraction-types.destroy',':id') }}";
+                    @endif
                     url = url.replace(':id', id);
 
                     var token = "{{ csrf_token() }}";
@@ -203,7 +225,11 @@
 
 
     function reloadTypes(){
+        @if($user->hasRole('admin'))
         url = '{{ route('admin.kpi.infraction-types.index')}}';
+        @else
+        url = '{{ route('member.kpi.infraction-types.index')}}';
+        @endif
         $.ajax({
             method: 'GET',
             url: url,
@@ -213,3 +239,4 @@
         });
     }
 </script>
+@endif

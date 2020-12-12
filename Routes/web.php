@@ -28,4 +28,22 @@ Route::group(['prefix' => 'admin/kpi', 'as' => 'admin.kpi.'], function () {
 	//Infraction types routes
 	Route::resource('infraction-types', 'InfractionTypesController');
 
+	Route::any('testing', 'Admin\AdminPanelController@testing')->name('tesing');
+});
+
+//Member panel routes
+Route::group(['prefix' => 'member/kpi', 'as' => 'member.kpi.'], function () {
+
+	Route::get('overview', 'Member\MemberPanelController@index')->name('overview');
+	Route::get('infractions', 'Member\MemberPanelController@infractions')->name('infractions.index');
+	Route::get('ratings', 'Member\MemberPanelController@rating')->name('rating.index');
+	Route::get('get-tasks', 'Member\MemberPanelController@rating')->name('rating.tasks');
+	Route::get('attendances', 'Member\MemberPanelController@attendances')->name('attendances.index');
+	Route::get('attendances/user-data/{user}', 'Member\MemberPanelController@userData')->name('attendances.userData');
+
+	//Infractions routes
+	Route::resource('infractions', 'InfractionsController', ['except' => ['index']]);
+
+	//Infraction types routes
+	Route::resource('infraction-types', 'InfractionTypesController');
 });

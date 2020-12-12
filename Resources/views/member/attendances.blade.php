@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.member-app')
 
 @section('page-title')
 <div class="row bg-title">
@@ -65,7 +65,7 @@
 							<th>#</th>
 							<th>Name</th>
 							<th>Attended Days</th>
-							<th>Total Logged</th>
+							{{-- <th>Total Logged</th> --}}
 							<th>Score (out of {{$settings['attendance_score'] ?? 0}})</th>
 						</tr>
 					</thead>
@@ -79,13 +79,10 @@
 									{{ $log->count() }}
 								</td>
 								{{-- <td>
-									{{$employee->scores->time_logged}} minutes
-								</td> --}}
-								<td>
 									@php($hours = $log->sum('minutes')/60)
 									@php($minutes = $hours - floor($hours))
 									{{floor($hours)}} hours {{round($minutes*60)}} minutes
-								</td>
+								</td> --}}
 								<td>
 									{{$employee->scores->attendance_score}}
 								</td>
@@ -154,7 +151,7 @@
 		});
 
 		function tableReload() {
-			url = '{{route('admin.kpi.attendances.userData', ':id')}}';
+			url = '{{route('member.kpi.attendances.userData', ':id')}}';
 			url = url.replace(':id', $('#userData').val());
 			$.ajax({
 				method: 'GET',

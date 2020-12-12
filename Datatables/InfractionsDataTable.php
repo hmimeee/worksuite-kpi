@@ -24,8 +24,10 @@ class InfractionsDataTable extends DataTable
             ->eloquent($query)
             ->addColumn('action', function ($row) {
                 $action = '<div class="btn-group">';
+            if ((auth()->id() == $row->created_by && auth()->user()->hasKPIAccess) || (auth()->user()->hasRole('admin') && auth()->user()->hasKPIAccess)) {
                 $action .= '<a href="javascript:;" class="btn btn-sm btn-info" onclick="editInfraction(' . $row->id . ')"><i class="fa fa-pencil"></i></a>';
                 $action .= '<a href="javascript:;" class="btn btn-sm btn-danger" onclick="deleteInfraction(' . $row->id . ')"><i class="fa fa-trash"></i></a>';
+            }
                 $action .= '</div>';
 
                 return $action;

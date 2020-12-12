@@ -21,9 +21,19 @@ class Employee extends User
 {
     protected $table = 'users';
 
-    public function hasKPIAccess()
+    public function loggedData()
     {
-        return $this->belongsTo(AllowedUser::class, 'user_id') ? true : false;
+        return $this->hasMany(TrackedData::class, 'email', 'email');
+    }
+
+    public function scores()
+    {
+        $update = $this->hasOne(EmployeeScore::class, 'user_id')->first()->updated_at ?? null;
+        if (!$update || $update->diffInHours(now()) > 2) {
+            Employee::updateScore();
+        }
+
+        return $this->hasOne(EmployeeScore::class, 'user_id');
     }
 
     public function completedArticles()
@@ -191,7 +201,8 @@ class Employee extends User
         $baseScore = Setting::value('work_score', 'number') ?? 0;
         $score = number_format($baseScore, 1);
         $totalWorks = $tasks->count() + $articles->count();
-        $deduct = $totalWorks ? $baseScore /  $totalWorks : 0;
+        $totalCWorks = $createdTasks->count() + $createdArticles->count();
+        $deduct = $totalWorks ? $baseScore /  $totalWorks : ($totalCWorks ? $baseScore / $totalCWorks : 0);
 
         if ($tasks->count() > 0) {
             $faults = 0;
@@ -215,14 +226,14 @@ class Employee extends User
                     $faults += 1 / $item->users->count();
                 }
             }
-            $score = $baseScore - ($deduct * $faults);
+            $score = $score - ($deduct * $faults);
         }
 
         if ($articles->count() > 0) {
             $faults = 0;
             foreach ($articles as $art) {
                 $due = Carbon::createFromFormat('Y-m-d', $art->writing_deadline);
-                $completed = $art->logs->where('details', 'submitted the article for approval.')->last()->created_at ?? null;
+                $completed = $art->logs->where('details', 'submitted the article for approval.')->last()->created_at ?? now();
                 $period = new DatePeriod(
                     new DateTime($due->format('Y-m-d')),
                     new DateInterval('P1D'),
@@ -238,16 +249,17 @@ class Employee extends User
                     }
                 }
 
-                if ($completed != null && $setDate->format('Ymd') < $completed->format('Ymd')) {
+                if ($completed == null || $setDate->format('Ymd') < $completed->format('Ymd')) {
                     $faults += 1;
                 }
             }
             
-            $score = $baseScore - ($deduct * $faults);
+            $score = $score - ($deduct * $faults);
         }
 
         if ($createdTasks->count() > 0) {
             $faults = 0;
+            
             foreach ($createdTasks as $task) {
                 $period = new DatePeriod(
                     new DateTime($task->completed_on->format('Y-m-d')),
@@ -264,7 +276,7 @@ class Employee extends User
                     }
                 }
 
-                if ($task->isApproved && $task->created_by != $employee->id && $task->isApproved->created_at->format('Ymd') - $setDate > 2) {
+                if (!$task->isApproved || $task->isApproved->created_at->format('Ymd') - $setDate->format('Ymd') > 2) {
                     $faults += 1;
                 }
             }
@@ -276,7 +288,7 @@ class Employee extends User
             $faults = 0;
             foreach ($createdArticles as $arti) {
                 $completed = $arti->logs->where('details', 'submitted the article for approval.')->last()->created_at ?? null;
-                $approved = $arti->logs->where('details', 'approved the article and transferred for publishing.')->first()->created_at ?? null;
+                $approved = $arti->logs->where('details', 'approved the article and transferred for publishing.')->first()->created_at ?? now();
                 if ($completed) {
                     $period = new DatePeriod(
                         new DateTime($completed->format('Y-m-d')),
@@ -294,12 +306,12 @@ class Employee extends User
                     }
                 }
 
-                if ($completed != null && $approved != null && $arti->creator != $employee->id && $approved->format('Ymd') - $setDate->format('Ymd') > 2) {
+                if ($completed != null && $approved->format('Ymd') - $setDate->format('Ymd') > 2) {
                     $faults += 1;
                 }
             }
 
-            $score = $baseScore - ($deduct * $faults);
+            $score = $score - ($deduct * $faults);
         }
 
         $allCount = $tasks->count()+ $articles->count()+$createdArticles->count()+$createdTasks->count();
@@ -330,28 +342,37 @@ class Employee extends User
 
     public static function topFiveScorers()
     {
-        $allEmp = Employee::exceptWriters()->active()->get();
-        foreach ($allEmp as $emp) {
-            $scr[$emp->id] = Employee::allScores($emp->id)->total;
-            $wscr[$emp->id] = Employee::taskScores($emp->id);
-            $iscr[$emp->id] = Employee::infractionScore($emp->id);
-            $ascr[$emp->id] = Employee::attendanceScore($emp->id);
-        }
+        // $allEmp = Employee::exceptWriters()->active()->get();
+        // foreach ($allEmp as $emp) {
+        //     $scr[$emp->id] = Employee::allScores($emp->id)->total;
+        //     $wscr[$emp->id] = Employee::taskScores($emp->id);
+        //     $iscr[$emp->id] = Employee::infractionScore($emp->id);
+        //     $ascr[$emp->id] = Employee::attendanceScore($emp->id);
+        // }
 
-        arsort($scr);
-        arsort($wscr);
-        arsort($iscr);
-        arsort($ascr);
+        // arsort($scr);
+        // arsort($wscr);
+        // arsort($iscr);
+        // arsort($ascr);
 
-        $scr = array_keys(array_slice($scr, 0, 5, true));
-        $wscr = array_keys(array_slice($wscr, 0, 5, true));
-        $iscr = array_keys(array_slice($iscr, 0, 5, true));
-        $ascr = array_keys(array_slice($ascr, 0, 5, true));
+        // $scr = array_keys(array_slice($scr, 0, 5, true));
+        // $wscr = array_keys(array_slice($wscr, 0, 5, true));
+        // $iscr = array_keys(array_slice($iscr, 0, 5, true));
+        // $ascr = array_keys(array_slice($ascr, 0, 5, true));
 
-        $topFive['total'] = Employee::whereIn('id', $scr)->orderBy(DB::raw("FIELD(id," . join(',', $scr) . ")"))->get();
-        $topFive['work'] = Employee::whereIn('id', $wscr)->orderBy(DB::raw("FIELD(id," . join(',', $wscr) . ")"))->get();
-        $topFive['infraction'] = Employee::whereIn('id', $iscr)->orderBy(DB::raw("FIELD(id," . join(',', $iscr) . ")"))->get();
-        $topFive['attendance'] = Employee::whereIn('id', $ascr)->orderBy(DB::raw("FIELD(id," . join(',', $ascr) . ")"))->get();
+        // $topFive['total'] = Employee::whereIn('id', $scr)->orderBy(DB::raw("FIELD(id," . join(',', $scr) . ")"))->get();
+        // $topFive['work'] = Employee::whereIn('id', $wscr)->orderBy(DB::raw("FIELD(id," . join(',', $wscr) . ")"))->get();
+        // $topFive['infraction'] = Employee::whereIn('id', $iscr)->orderBy(DB::raw("FIELD(id," . join(',', $iscr) . ")"))->get();
+        // $topFive['attendance'] = Employee::whereIn('id', $ascr)->orderBy(DB::raw("FIELD(id," . join(',', $ascr) . ")"))->get();
+
+        $topFive['total'] = EmployeeScore::orderBy('total_score', 'desc')->get()->take(5);
+        $topFive['work'] = EmployeeScore::orderBy('work_score', 'desc')->get()->take(5);
+        $topFive['infraction'] = EmployeeScore::orderBy('infraction_score', 'desc')->get()->take(5);
+        $topFive['attendance'] = EmployeeScore::orderBy('attendance_score', 'desc')->get()->take(5);
+        $topFive['total_low'] = EmployeeScore::orderBy('total_score')->get()->take(5);
+        $topFive['work_low'] = EmployeeScore::orderBy('work_score')->get()->take(5);
+        $topFive['infraction_low'] = EmployeeScore::orderBy('infraction_score')->get()->take(5);
+        $topFive['attendance_low'] = EmployeeScore::orderBy('attendance_score')->get()->take(5);
 
         return $topFive;
     }
@@ -396,24 +417,28 @@ class Employee extends User
 
             foreach ($bindData as $email => $data) {
                 foreach ($data as $date => $info) {
-                    $fromTime = 1450;
+                    $fromTime = Setting::value('start_break_time', 'time')->format('Hi');
+                    $allowedTime = Setting::value('allowed_time');
                     $breakEnd = [];
 
                     //Searching time from break time
                     foreach ($info as $key => $value) {
-                        $time = Carbon::createFromFormat('Y-m-d H:i', $value['start'], 'UTC')->setTimezone('Asia/Dhaka')->format('Hi');
-                        $eTime = Carbon::createFromFormat('Y-m-d H:i', $value['start'], 'UTC')->setTimezone('Asia/Dhaka')->format('Y-m-d H:i');
-                        $sTime = Carbon::createFromFormat('Y-m-d H:i', $value['end'], 'UTC')->setTimezone('Asia/Dhaka')->format('Y-m-d H:i');
-                        if ($time >= $fromTime) {
+                        // $time = Carbon::createFromFormat('Y-m-d H:i', $value['start'], 'UTC')->setTimezone('Asia/Dhaka')->format('Hi');
+                        // $eTime = Carbon::createFromFormat('Y-m-d H:i', $value['start'], 'UTC')->setTimezone('Asia/Dhaka')->format('Y-m-d H:i');
+                        // $sTime = Carbon::createFromFormat('Y-m-d H:i', $value['end'], 'UTC')->setTimezone('Asia/Dhaka')->format('Y-m-d H:i');
+                        $time = Carbon::createFromFormat('Y-m-d H:i', $value['start'])->format('Hi');
+                        $eTime = Carbon::createFromFormat('Y-m-d H:i', $value['start'])->format('Y-m-d H:i');
+                        $sTime = Carbon::createFromFormat('Y-m-d H:i', $value['end'])->format('Y-m-d H:i');
+                        if ($time >= $fromTime + $allowedTime) {
                             $breakEnd[] = $eTime;
                         }
 
-                        if ($time < $fromTime) {
+                        if ($time < $fromTime + $allowedTime) {
                             $breakStart[] = $sTime;
                         }
                     }
-                    $start = Carbon::createFromFormat('Y-m-d H:i', $info[0]['start'], 'UTC')->setTimezone('Asia/Dhaka');
-                    $end = Carbon::createFromFormat('Y-m-d H:i', end($info)['end'], 'UTC')->setTimezone('Asia/Dhaka');
+                    $start = Carbon::createFromFormat('Y-m-d H:i', $info[0]['start']);
+                    $end = Carbon::createFromFormat('Y-m-d H:i', end($info)['end']);
                     $minutes = array_sum(array_column($info, 'minutes'));
 
                     $employee = Employee::where('email', $email)->first();
@@ -426,7 +451,7 @@ class Employee extends User
                                 'break_start' => !empty($breakStart) ? end($breakStart) : $start->format('Y-m-d H:i'), //From the searching time from break time foreach
                                 'break_end' => !empty($breakEnd) ? $breakEnd[0] : $end->format('Y-m-d H:i'), //From the searching time from break time foreach
                                 'end' => $end->format('Y-m-d H:i'),
-                                'minutes' => $minutes,
+                                'minutes' => $start->diffInMinutes($end),
                                 'leave' => $hasLeave ? ($hasLeave->duration == 'half day' ? 'half day' : null) : null,
                             ]);
                         }
@@ -472,6 +497,16 @@ class Employee extends User
     {
         $trackedData = Employee::userTrackedData($id);
         $faults = 0;
+        $baseScore = Setting::value('attendance_score', 'number') ?? 0;
+        $attendances = $trackedData->count();
+        $deduct = $attendances ? $baseScore / $attendances : 0;
+        $allowedTime = Setting::value('allowed_time');
+        //Hour * 60 + Minutes = Total Minutes
+        $startTime = Setting::value('start_time', 'time')->format('H') * 60 + Setting::value('start_time', 'time')->format('i') ?? 670;
+        $endTime = Setting::value('end_time', 'time')->format('H') * 60 + Setting::value('end_time', 'time')->format('i') ?? 1139;
+        $breakEnd = Setting::value('end_break_time', 'time')->format('H') * 60 + Setting::value('end_break_time', 'time')->format('i') ?? 905;
+        $remainingTime = 0;
+        $faultCount = [];
 
         foreach ($trackedData as $data) {
             $start = $data->start->format('H:i');
@@ -492,12 +527,6 @@ class Employee extends User
             $hasLeave = Leave::where('user_id', $id)->where('leave_date', $date)->first();
 
             if ($hasLeave == null) {
-                //Hour * 60 + Minutes = Total Minutes
-                $allowedTime = Setting::value('allowed_time');
-                $startTime = Setting::value('start_time', 'time')->format('H') * 60 + Setting::value('start_time', 'time')->format('i') ?? 670;
-                $endTime = Setting::value('end_time', 'time')->format('H') * 60 + Setting::value('end_time', 'time')->format('i') ?? 1139;
-                $breakEnd = Setting::value('end_break_time', 'time')->format('H') * 60 + Setting::value('end_break_time', 'time')->format('i') ?? 905;
-
                 //Check if the user start office after 11:10 am
                 if ($start > $startTime) {
                     //Check the delayed time in minutes
@@ -507,31 +536,62 @@ class Employee extends User
                     if ($end <= $endTime) {
                         $faults += 1;
                         $checkedDate = $date;
+
+                        if ($late > 0) {
+                            $faultCount[] = [
+                                'date' => $date,
+                                'gap' => $late
+                            ];
+                        }
                     }
 
                     //Check if the user end office after 07:00 pm
                     if ($checkedDate != $date &&  $end > $endTime && $late > ($end - $endTime)) {
                         $faults += 1;
+                        $checkedDate = $date;
+
+                        if ($late > 0) {
+                            $faultCount[] = [
+                                'date' => $date,
+                                'gap' => $late
+                            ];
+                        }
                     }
                 }
 
                 //Check if the user end office before 07:00 pm
                 if ($checkedDate != $date && $end < $endTime) {
                     //Check the early time in minutes
-                    $early = ($endTime - $end) - $allowedTime;
+                    $early = ($end - $endTime) - $allowedTime;
 
                     //Check if the user start office after 11:10 am
                     if ($start > $startTime) {
                         $faults += 1;
                         $checkedDate = $date;
+
+                        if ($early > 0) {
+                            $faultCount[] = [
+                                'date' => $date,
+                                'gap' => $early
+                            ];
+                        }
                     }
 
                     //Check if the user start office before 11:00 am
                     if ($checkedDate != $date && $start < $startTime && $early > ($startTime - $start)) {
                         $faults += 1;
+                        $checkedDate = $date;
+
+                        if ($early > 0) {
+                            $faultCount[] = [
+                                'date' => $date,
+                                'gap' => $early
+                            ];
+                        }
                     }
                 }
-                
+
+
                 //Check if user took more time than break time limit
                 // if ($checkedDate != $date && $breakFinish > $breakEnd && ($breakFinish - $breakBegin) > 65) {
                 //     $faults += 1;
@@ -539,11 +599,43 @@ class Employee extends User
             }
         }
 
-        $attendances = $trackedData->count();
-        $baseScore = Setting::value('attendance_score', 'number') ?? 0;
+        //check if the user has filled the faults times in the week
+        if (!empty($faultCount)) {
+            foreach ($faultCount as $fault) {
+                $startOfWeek = Carbon::create($fault['date'])->startOfWeek(); //Starts from sunday
+                $endOfWeek = $startOfWeek->endOfWeek();
+                $leavesCount = Leave::where('user_id', $id)
+                ->where('duration', '<>', 'half day')
+                ->whereBetween('leave_date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
+                ->count();
+                $weekTotal = ($endTime - $startTime) * (6 - $leavesCount);
+                // dd($trackedData);
+
+                $weekEmpTotal = Employee::userTrackedData($id)
+                    ->where('date', '<', $endOfWeek->addDays(1)->format('Y-m-d'))
+                    ->sum('minutes');
+
+                if ($weekEmpTotal > $weekTotal) {
+                    $extraTimes = $weekEmpTotal - $weekTotal;
+                    if (isset($filledGap)) {
+                        $extraTimes = $extraTimes - array_sum($filledGap);
+                    }
+                    $remainingTime = ($remainingTime + $extraTimes) - $fault['gap'];
+                    if ($remainingTime >= 0) {
+                        $faults = $faults - 1;
+                        $filledGap[] = $fault['gap'];
+                    }
+
+                    $timeArr[] = $remainingTime;
+                }
+            }
+        }
+        
         if ($faults > 0) {
-            $score = $baseScore - ($baseScore / $attendances) * $faults;
-        } else {
+            $score = $baseScore - ($deduct * $faults);
+        }
+
+        if (!isset($score)) {
             $score = $baseScore;
         }
 
@@ -552,5 +644,28 @@ class Employee extends User
         }
 
         return number_format($score, 1);
+    }
+
+    /**
+     * Updating all data to the database to reduce server pressure
+     * @return true
+     */
+    public static function updateScore()
+    {
+        $allEmp = Employee::exceptWriters()->active()->get();
+        $outOf = Setting::value('attendance_score') + Setting::value('work_score') + Setting::value('infraction_score');
+        foreach ($allEmp as $emp) {
+            EmployeeScore::updateOrCreate(['user_id' => $emp->id], [
+                'attendance_score' => Employee::attendanceScore($emp->id),
+                'work_score' => Employee::taskScores($emp->id, 'json'),
+                'infraction_score' => Employee::infractionScore($emp->id),
+                'total_score' => Employee::allScores($emp->id, 'json')->total,
+                'rating' => Employee::taskRating($emp->id, 'json'),
+                'out_of' => $outOf,
+                'time_logged' => $emp->loggedData->sum('minutes'),
+            ]);
+        }
+
+        return true;
     }
 }

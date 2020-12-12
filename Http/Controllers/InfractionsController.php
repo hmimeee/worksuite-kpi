@@ -2,15 +2,18 @@
 
 namespace Modules\KPI\Http\Controllers;
 
+use App\User;
+use App\Helper\Reply;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
-use Modules\KPI\DataTables\InfractionsDataTable;
-use Modules\KPI\Entities\InfractionType;
-use App\Http\Controllers\Member\MemberBaseController;
-use App\User;
-use App\Helper\Reply;
 use Modules\KPI\Entities\Infraction;
+use Modules\KPI\Entities\InfractionType;
+use Illuminate\Support\Facades\Notification;
+use Modules\KPI\DataTables\InfractionsDataTable;
+use App\Http\Controllers\Member\MemberBaseController;
+use Modules\KPI\Entities\Employee;
+use Modules\KPI\Notifications\InfractionNotification;
 
 class InfractionsController extends MemberBaseController
 {
@@ -20,7 +23,7 @@ class InfractionsController extends MemberBaseController
      */
     public function create()
     {
-        $this->employees = User::allEmployees();
+        $this->employees = Employee::exceptWriters()->active()->get();
         $this->types = InfractionType::all();
 
         return view('kpi::infractions.create', $this->data);
@@ -36,6 +39,7 @@ class InfractionsController extends MemberBaseController
         $infractionType = InfractionType::find($request->infraction_type_id);
 
         $infraction = new Infraction();
+        $infraction->created_by = auth()->id();
         $infraction->user_id = $request->user_id;
         $infraction->details = $request->details;
         if ($request->from_list && $request->infraction_type_id) {
@@ -44,12 +48,16 @@ class InfractionsController extends MemberBaseController
         } elseif ($request->infraction_type) {
             $infraction->infraction_type = $request->infraction_type;
             $infraction->reduction_points = $request->reduction_points;
+        } else {
+            return Reply::error('You must write or select infraction type!');
         }
 
         if (!$infraction->save()) {
             return Reply::error('Something went wrong!');
         }
 
+        $notifyTo = Employee::find($request->user_id);
+        Notification::send($notifyTo, new InfractionNotification($infraction, 'Added New Infraction', 'added a new infraction against you.'));
         return Reply::success('Infraction created successfully!');
     }
 
@@ -97,15 +105,17 @@ class InfractionsController extends MemberBaseController
 
         $infraction->user_id = $request->user_id;
 
-        if ($request->from_list) {
+        if ($request->from_list && $request->infraction_type_id) {
             $infraction->infraction_type_id = $request->infraction_type_id;
 
             $type = InfractionType::find($request->infraction_type_id);
             $infraction->reduction_points = $type->reduction_points;
-        } else {
+        } elseif ($request->infraction_type) {
             $infraction->infraction_type_id = null;
             $infraction->infraction_type = $request->infraction_type;
             $infraction->reduction_points = $request->reduction_points;
+        } else {
+            return Reply::error('You must write or select infraction type!');
         }
 
         if ($request->details) {
