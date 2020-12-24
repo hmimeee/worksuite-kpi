@@ -30,7 +30,7 @@ class MemberPanelController extends MemberBaseController
     {
         $this->pageTitle = 'KPI Overview';
         $this->topScorers = Employee::topFiveScorers();
-        $this->employees = Employee::exceptWriters()->active()->get();
+        $this->employees = Employee::exceptWriters()->active()->get()->sortByDesc('scores.total_score');
         $this->settings = Setting::all()->pluck('value', 'name');
 
         return view('kpi::member.index', $this->data);
@@ -84,6 +84,11 @@ class MemberPanelController extends MemberBaseController
 
                 $heading = "<label class='badge badge-success'>Task:</label> <a href='javascript:;' onclick='showTask($task->id)'>$task->heading</a>";
 
+                $faults = Employee::taskScores($employee->id, 'array');
+                if (array_key_exists($task->id, $faults['task_faults'])) {
+                    $heading .= " <label class='label label-danger'>" . $faults['task_faults'][$task->id]['reason'] . "</label>";
+                }
+
                 $tasks[] = [
                     'id' => $task->id,
                     'heading' => $heading,
@@ -113,6 +118,11 @@ class MemberPanelController extends MemberBaseController
                 $members .= '</a>';
 
                 $heading = '<label class="badge badge-info">Article:</label> <a href="javascript:;" onclick="showTask(' . $article->id . ', \'article\')">' . $article->title . '</a>';
+
+                $faults = Employee::taskScores($employee->id, 'array');
+                if (array_key_exists($article->id, $faults['article_faults'])) {
+                    $heading .= " <label class='label label-danger'>" . $faults['article_faults'][$article->id]['reason'] . "</label>";
+                }
 
                 $tasks[] = [
                     'id' => $article->id,
@@ -161,12 +171,23 @@ class MemberPanelController extends MemberBaseController
 
     public function userData(Employee $user)
     {
-        if (!$user->hasKPIAccess) {
-            $userData = Employee::userTrackedData(auth()->id());
-        }
-        $userData = Employee::userTrackedData($user->id);
+        $userData = Employee::userTrackedData($user->id, 'object');
+        $resons = Employee::attendanceScore($user->id, 'array');
 
-        return $userData;
+        foreach ($userData as $key => $data) {
+            $has_reason = array_key_exists($data->date->format('Y-m-d'), $resons) ? '<label class="label label-danger">' . $resons[$data->date->format('Y-m-d')] . '</label>' : null;
+            $bindData[] = [
+                'date' => $data->date->format('d-m-Y') . ' ' . $has_reason,
+                'start' => $data->start->format('h:i a'),
+                'break_start' => $data->break_start->format('h:i a'),
+                'break_end' => $data->break_end->format('h:i a'),
+                'end' => $data->end->format('h:i a'),
+                'minutes' => $data->minutes,
+                'leave' => $data->leave,
+            ];
+        }
+
+        return $bindData ?? [];
     }
 
     /**

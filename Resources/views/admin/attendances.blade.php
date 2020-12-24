@@ -45,7 +45,7 @@
 					</option>
 				@endfor
 			</select>
-		</div>
+		</div>k
 
 		<div class="form-group">
 			<button class="btn btn-success btn-sm">Apply</button>

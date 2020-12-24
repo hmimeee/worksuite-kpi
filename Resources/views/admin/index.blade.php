@@ -49,7 +49,38 @@
 
 		<div class="p-5">
 		</div>
-		<div class="col-md-3">
+		<div class="col-md-12">
+			<div class="white-box">
+				<div class="row">
+					<div class="col-xs-3 row">
+						<div class="col-xs-3">
+							<span class="badge badge-success"><b>{{$employees->pluck('id')->search(auth()->id())+1}}</b></span>
+						</div>
+						<div class="col-xs-9">
+						<h4>{{ auth()->user()->name }}</h4>
+						</div>
+					</div>
+					<div class="col-xs-2 text-right">
+						<span class="counter">Attendance Score</span><br>
+						<span class="counter">{{ \Modules\KPI\Entities\Employee::attendanceScore(auth()->id()) }}</span>
+					</div>
+					<div class="col-xs-2 text-right">
+						<span class="counter">Task Score</span><br>
+						<span class="counter">{{ \Modules\KPI\Entities\Employee::taskScores(auth()->id()) }}</span>
+					</div>
+					<div class="col-xs-2 text-right">
+						<span class="counter">Infraction Score</span><br>
+						<span class="counter">{{ \Modules\KPI\Entities\Employee::infractionScore(auth()->id()) }}</span>
+					</div>
+					<div class="col-xs-2 text-right">
+						<span class="counter">Total Score</span><br>
+						<span class="counter">{{ \Modules\KPI\Entities\Employee::allScores(auth()->id())->total }}</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 High Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -74,7 +105,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Attendance Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -100,7 +131,7 @@
 			</div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Work Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -126,7 +157,7 @@
 			</div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Infraction Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -152,7 +183,7 @@
 			</div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Low Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -177,7 +208,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Attendance Low Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -203,7 +234,7 @@
 			</div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Work Low Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -229,7 +260,7 @@
 			</div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Infraction Low Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -274,7 +305,7 @@
 							<tbody>
 								@foreach($employees as $employee)
 									<tr>
-										<td>{{ $employee->id }}</td>
+										<td>{{$employees->pluck('id')->search($employee->id)+1}}</td>
 										<td><a href="javascript:;">{{ $employee->name }}</a></td>
 										<td>
 											{{ $employee->scores->attendance_score }}
@@ -305,7 +336,8 @@
 <script>
 	$(document).ready(function () {
 		$('#employees-table').DataTable({
-			"pageLength": 25
+			"pageLength": 25,
+			'order': [[5, 'desc']],
 		});
 	});
 </script>

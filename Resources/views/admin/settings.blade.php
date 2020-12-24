@@ -82,6 +82,7 @@
 								<span class="input-group-addon">Attendance Score</span>
 								<input type="number" class="form-control" name="attendance_score"
 									value="{{ $settings['attendance_score'] ?? '' }}">
+									<span class="input-group-addon">Points</span>
 							</div>
 						</div>
 					</div>
@@ -91,6 +92,7 @@
 								<span class="input-group-addon">Work Score</span>
 								<input type="number" class="form-control" name="work_score"
 									value="{{ $settings['work_score'] ?? '' }}">
+									<span class="input-group-addon">Points</span>
 							</div>
 						</div>
 					</div>
@@ -100,6 +102,39 @@
 								<span class="input-group-addon">Infraction Score</span>
 								<input type="number" class="form-control" name="infraction_score"
 									value="{{ $settings['infraction_score'] ?? '' }}">
+									<span class="input-group-addon">Points</span>
+							</div>
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<div class="input-group">
+								<span class="input-group-addon">Tracker Email</span>
+								<input type="email" class="form-control" name="tracker_mail"
+									value="{{ $settings['tracker_mail'] ?? '' }}">
+							</div>
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<div class="input-group">
+								<span class="input-group-addon">Tracker Key</span>
+								<input type="text" class="form-control" name="tracker_key"
+									value="{{ $settings['tracker_key'] ?? '' }}">
+							</div>
+						</div>
+					</div>
+					<div class="col-md-12">
+						<div class="form-group">
+							<div class="input-group">
+								<span class="input-group-addon">Except Employee(s)</span>
+								<select name="except_users[]" class="select2 select2-multiple " multiple="multiple">
+									@foreach($allEmployees as $u)
+										<option value="{{ $u->id }}"
+											{{ isset($settings['except_users']) ? (in_array($u->id, explode(',', $settings['except_users'])) ? 'selected' : '') : '' }}>
+											{{ $u->name }}</option>
+									@endforeach
+								</select>
 							</div>
 						</div>
 					</div>
@@ -116,7 +151,7 @@
 					<div class="form-group">
 							<div class="input-group">
 								<span class="input-group-addon">Update Module</span>
-								<input type="file" name="module" class="form-control" style="display: inline">
+								<input type="file" name="module" class="form-control" style="display: inline; padding-top: 3px;">
 								<a href="javascript:;" class="input-group-addon bg-success b-0 text-white" id="update-module">Upload</a>
 								<input type="hidden" name="update_module" value="true">
 							</div>

@@ -92,10 +92,12 @@ class Employee extends User
     {
         $expIDs = User::whereHas('roles', function ($q) {
             return $q->where('name', 'remote_writer')->orWhere('name', 'client');
-        })->pluck('id');
+        })->pluck('id')->toArray();
 
         //Remove unwanted users from list (Using ID)
-        $expIDs[] = 1;
+        $exceptUsers = Setting::value('except_users', 'array') ?? [];
+        if (count($exceptUsers))
+        $expIDs = array_merge($expIDs, $exceptUsers);
 
         return $query->whereNotIn('id', $expIDs);
     }
@@ -191,6 +193,50 @@ class Employee extends User
         return $html;
     }
 
+    private static function filterPoint($days = 0, $points = 0, $deduct = true)
+    {
+        $d = $points;
+
+        if ($deduct) {
+            if ($days == 2) {
+                $d = $points * 1.2;
+            }
+            if ($days == 3) {
+                $d = $points * 1.4;
+            }
+            if ($days == 4) {
+                $d = $points * 1.6;
+            }
+            if ($days == 5) {
+                $d = $points * 1.8;
+            }
+            if ($days == 6) {
+                $d = $points * 2.2;
+            }
+            if ($days > 6) {
+                $d = $points * 2.5;
+            }
+        } else {
+            if ($days == 1) {
+                $d = $points / 5;
+            }
+            if ($days == 2) {
+                $d = $points / 4;
+            }
+            if ($days == 3) {
+                $d = $points / 3;
+            }
+            if ($days == 4) {
+                $d = $points / 2.5;
+            }
+            if ($days > 4) {
+                $d = $points / 2;
+            }
+        }
+
+        return $d;
+    }
+
     public static function taskScores($id, $json = null)
     {
         $employee = Employee::find($id);
@@ -200,20 +246,25 @@ class Employee extends User
         $createdTasks = $employee->finishedCreatedTasks;
         $baseScore = Setting::value('work_score', 'number') ?? 0;
         $score = number_format($baseScore, 1);
-        $totalWorks = $tasks->count() + $articles->count();
-        $totalCWorks = $createdTasks->count() + $createdArticles->count();
-        $deduct = $totalWorks ? $baseScore /  $totalWorks : ($totalCWorks ? $baseScore / $totalCWorks : 0);
+        $totalWorks = $tasks->count() + $createdTasks->count() + $articles->count() + $createdArticles->count();
+        $deduct = $totalWorks ? ($baseScore /  $totalWorks) : 0;
 
+        //Check task where the user is assignee
         if ($tasks->count() > 0) {
-            $faults = 0;
+            // $faults = 0;
+            $d = 0;
+            $a = 0;
+            $taskFaults = [];
             foreach ($tasks as $item) {
+                //Collect the dates of the week
                 $period = new DatePeriod(
                     new DateTime($item->due_date->format('Y-m-d')),
                     new DateInterval('P1D'),
                     new DateTime($item->due_date->addDays(6)->format('Y-m-d'))
                 );
-                $leaves = $employee->leaves;
 
+                //Check if the user has taken any leaves
+                $leaves = $employee->leaves->where('duration', '<>', 'half day');
                 foreach ($period as $pdate) {
                     $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
                     if (!$dleave) {
@@ -222,25 +273,63 @@ class Employee extends User
                     }
                 }
                 
+                //Check if the task was not completed in time
                 if ($setDate->format('Ymd') < $item->completed_on->format('Ymd')) {
-                    $faults += 1 / $item->users->count();
+                    // $faults += 1 / $item->users->count();
+                    $days = $item->completed_on->diffInDays($setDate);
+                    $filterPoints = Employee::filterPoint($days, $deduct) / $item->users->count();
+                    $d = $d + $filterPoints;
+                    
+                    $taskFaults[$item->id] = [
+                        'task_id' => $item->id,
+                        'task_heading' => $item->heading,
+                        'deduct' => $filterPoints,
+                        'reason' => 'Delayed to complete',
+                        'days' => $days,
+                    ];
+                }
+
+                //Check if the task completed before the deadline
+                if ($item->due_date->format('Ymd') > $item->completed_on->format('Ymd')) {
+                    if (!$item->users->where('id', $item->created_by)->first()) {
+                        $days = $item->due_date->diffInDays($item->completed_on);
+                        $filterPoints = Employee::filterPoint($days, $deduct, false) / $item->users->count();
+                        $a = $a + $filterPoints;
+                        $taskFaults[$item->id] = [
+                            'task_id' => $item->id,
+                            'task_heading' => $item->heading,
+                            'add' => $filterPoints,
+                            'reason' => 'Completed early',
+                        ];
+                    }
                 }
             }
-            $score = $score - ($deduct * $faults);
+
+            //Deduct/Add points with the score
+            $score = ($score - $d) + $a;
         }
 
+        //Check the articles where the user is assignee
         if ($articles->count() > 0) {
-            $faults = 0;
+            $d = 0;
+            $a = 0;
+            $articleFaults = [];
+            // $faults = 0;
             foreach ($articles as $art) {
+                //Get the due date
                 $due = Carbon::createFromFormat('Y-m-d', $art->writing_deadline);
+                //Get the completed date
                 $completed = $art->logs->where('details', 'submitted the article for approval.')->last()->created_at ?? now();
+
+                //Collect the dates of the week
                 $period = new DatePeriod(
                     new DateTime($due->format('Y-m-d')),
                     new DateInterval('P1D'),
                     new DateTime($due->addDays(6)->format('Y-m-d'))
                 );
-                $leaves = $employee->leaves;
 
+                //Check if the user has taken any leaves
+                $leaves = $employee->leaves->where('duration', '<>', 'half day');
                 foreach ($period as $pdate) {
                     $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
                     if (!$dleave) {
@@ -250,24 +339,58 @@ class Employee extends User
                 }
 
                 if ($completed == null || $setDate->format('Ymd') < $completed->format('Ymd')) {
-                    $faults += 1;
+                    // $faults += 1;
+                    if ($completed == null) {
+                        $days = now()->diffInDays($setDate);
+                    } else {
+                        $days = $completed->diffInDays($setDate);
+                    }
+
+                    $filterPoints = Employee::filterPoint($days, $deduct);
+                    $d = $d + $filterPoints;
+
+                    $articleFaults[$art->id] = [
+                        'article_id' => $art->id,
+                        'article_title' => $art->title,
+                        'deduct' => $filterPoints,
+                        'reason' => 'Delayed to complete',
+                    ];
+                }
+
+                if ($completed != null && $due->format('Ymd') > $completed->format('Ymd')) {
+                    $days = $due->diffInDays($completed);
+                    $filterPoints = Employee::filterPoint($days, $deduct, false);
+                    $a = $a + $filterPoints;
+
+                    $articleFaults[$art->id] = [
+                        'article_id' => $art->id,
+                        'article_title' => $art->title,
+                        'add' => $filterPoints,
+                        'reason' => 'Completed early',
+                    ];
                 }
             }
             
-            $score = $score - ($deduct * $faults);
+            $score = ($score - $d) + $a;
         }
 
+        //Check the task where the user is creator
         if ($createdTasks->count() > 0) {
-            $faults = 0;
-            
+            // $faults = 0;
+            $d = 0;
+            $taskFaults = [];
+
             foreach ($createdTasks as $task) {
+
+                //Collect the dates of the week
                 $period = new DatePeriod(
                     new DateTime($task->completed_on->format('Y-m-d')),
                     new DateInterval('P1D'),
                     new DateTime($task->completed_on->addDays(6)->format('Y-m-d'))
                 );
-                $leaves = $employee->leaves;
 
+                //Check if the user has taken any leaves
+                $leaves = $employee->leaves->where('duration', '<>', 'half day');
                 foreach ($period as $pdate) {
                     $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
                     if (!$dleave) {
@@ -276,27 +399,50 @@ class Employee extends User
                     }
                 }
 
-                if (!$task->isApproved || $task->isApproved->created_at->format('Ymd') - $setDate->format('Ymd') > 2) {
-                    $faults += 1;
+                //Check if the user has approved the task in time
+                if (($task->isApproved == null && now()->format('Ymd') > $setDate->format('Ymd')) || ($task->isApproved && $task->isApproved->created_at->format('Ymd') > $setDate->format('Ymd'))) {
+                    // $faults += 1;
+                    if ($task->isApproved == null) {
+                        $days = now()->diffInDays($setDate) - 2;
+                    } else {
+                        $days = $task->isApproved->created_at->diffInDays($setDate) - 2;
+                    }
+
+                    if ($days > 0) {
+                        $filterPoints = Employee::filterPoint($days, $deduct);
+                        $d = $d + $filterPoints;
+
+                        $taskFaults[$task->id] = [
+                            'task_id' => $task->id,
+                            'task_title' => $task->heading,
+                            'deduct' => $filterPoints,
+                            'reason' => 'Delayed to approve',
+                        ];
+                    }
                 }
             }
 
-            $score = $score - ($deduct * $faults);
+            $score = $score - $d;
         }
 
+        //Check if the user delayed to approve the articles
         if ($createdArticles->count() > 0) {
-            $faults = 0;
+            // $faults = 0;
+            $d = 0;
+            $articleFaults = [];
             foreach ($createdArticles as $arti) {
                 $completed = $arti->logs->where('details', 'submitted the article for approval.')->last()->created_at ?? null;
                 $approved = $arti->logs->where('details', 'approved the article and transferred for publishing.')->first()->created_at ?? now();
                 if ($completed) {
+                    //Collect the dates of the week
                     $period = new DatePeriod(
                         new DateTime($completed->format('Y-m-d')),
                         new DateInterval('P1D'),
                         new DateTime($completed->addDays(6)->format('Y-m-d'))
                     );
-                    $leaves = $employee->leaves;
 
+                    //Check if the user has taken any leaves
+                    $leaves = $employee->leaves->where('duration', '<>', 'half day');
                     foreach ($period as $pdate) {
                         $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
                         if (!$dleave) {
@@ -306,22 +452,38 @@ class Employee extends User
                     }
                 }
 
-                if ($completed != null && $approved->format('Ymd') - $setDate->format('Ymd') > 2) {
-                    $faults += 1;
+                //Check if the user approved the article in time
+                if ($completed != null && $approved->format('Ymd') > $setDate->format('Ymd')) {
+                    // $faults += 1;
+                    $days = $approved->diffInDays($setDate) - 2;
+                    if ($days > 0) {
+                        $filterPoints = Employee::filterPoint($days, $deduct);
+                        $d = $d + $filterPoints;
+
+                        $articleFaults[$arti->id] = [
+                            'article_id' => $arti->id,
+                            'article_title' => $arti->title,
+                            'deduct' => $filterPoints,
+                            'reason' => 'Delayed to approve',
+                        ];
+                    }
                 }
             }
-
-            $score = $score - ($deduct * $faults);
+            
+            $score = $score - $d;
         }
 
-        $allCount = $tasks->count()+ $articles->count()+$createdArticles->count()+$createdTasks->count();
-        if ($allCount == 0) {
+        if ($json == 'array') {
+            return array('task_faults' => $taskFaults ?? [], 'article_faults' => $articleFaults ?? []);
+        }
+
+        if ($totalWorks == 0) {
             $score = 0;
         }
 
         $score = number_format($score, 1);
 
-        if ($json) {
+        if ($json == 'json') {
             return $score;
         }
 
@@ -342,29 +504,6 @@ class Employee extends User
 
     public static function topFiveScorers()
     {
-        // $allEmp = Employee::exceptWriters()->active()->get();
-        // foreach ($allEmp as $emp) {
-        //     $scr[$emp->id] = Employee::allScores($emp->id)->total;
-        //     $wscr[$emp->id] = Employee::taskScores($emp->id);
-        //     $iscr[$emp->id] = Employee::infractionScore($emp->id);
-        //     $ascr[$emp->id] = Employee::attendanceScore($emp->id);
-        // }
-
-        // arsort($scr);
-        // arsort($wscr);
-        // arsort($iscr);
-        // arsort($ascr);
-
-        // $scr = array_keys(array_slice($scr, 0, 5, true));
-        // $wscr = array_keys(array_slice($wscr, 0, 5, true));
-        // $iscr = array_keys(array_slice($iscr, 0, 5, true));
-        // $ascr = array_keys(array_slice($ascr, 0, 5, true));
-
-        // $topFive['total'] = Employee::whereIn('id', $scr)->orderBy(DB::raw("FIELD(id," . join(',', $scr) . ")"))->get();
-        // $topFive['work'] = Employee::whereIn('id', $wscr)->orderBy(DB::raw("FIELD(id," . join(',', $wscr) . ")"))->get();
-        // $topFive['infraction'] = Employee::whereIn('id', $iscr)->orderBy(DB::raw("FIELD(id," . join(',', $iscr) . ")"))->get();
-        // $topFive['attendance'] = Employee::whereIn('id', $ascr)->orderBy(DB::raw("FIELD(id," . join(',', $ascr) . ")"))->get();
-
         $topFive['total'] = EmployeeScore::orderBy('total_score', 'desc')->get()->take(5);
         $topFive['work'] = EmployeeScore::orderBy('work_score', 'desc')->get()->take(5);
         $topFive['infraction'] = EmployeeScore::orderBy('infraction_score', 'desc')->get()->take(5);
@@ -385,10 +524,11 @@ class Employee extends User
         $date = Carbon::createFromDate($sdate, $ldate, 01);
         $startDate = $date->firstOfMonth()->format('Y-m-d');
         $endDate = $date->endOfMonth()->format('Y-m-d');
+        $getMail = Setting::value('tracker_mail');
+        $getKey = Setting::value('tracker_key');
 
         if ($dbData == null || $dbData->updated_at->diffInHours(now()) > 2) {
-            // $response = Http::withBasicAuth("faisal@viserx.com", "qsu9VC\-`'V")
-            $response = Http::withBasicAuth("faisal@viserx.com", "nv3ba7rvo2hlfymx1n4byd")
+            $response = Http::withBasicAuth($getMail, $getKey)
             ->get('https://www.webwork-tracker.com/rest-api/reports/daily-timeline', [
                 'start_date' => now()->firstOfMonth()->format('Y-m-d'),
                 'end_date' => now()->endOfMonth()->format('Y-m-d')
@@ -459,19 +599,19 @@ class Employee extends User
                 }
             }
         }
-
+        
         $getData = TrackedData::whereBetween('date', [$startDate, $endDate])->get();
 
         return $getData;
     }
 
 
-    public static function userTrackedData($id)
+    public static function userTrackedData($id, $type = 'array')
     {
         $employee = Employee::find($id);
         $userData = Employee::trackedData()->where('email', $employee->email);
 
-        if (request()->array) {
+        if (request()->array && $type != 'object') {
             $userData = $userData->toArray();
             foreach ($userData as $key => $data) {
                 $date = Carbon::create($data['date'])->format('Y-m-d');
@@ -493,9 +633,9 @@ class Employee extends User
         return $userData;
     }
 
-    public static function attendanceScore($id)
+    public static function attendanceScore($id, $return = 'score')
     {
-        $trackedData = Employee::userTrackedData($id);
+        $trackedData = Employee::userTrackedData($id, 'object');
         $faults = 0;
         $baseScore = Setting::value('attendance_score', 'number') ?? 0;
         $attendances = $trackedData->count();
@@ -507,7 +647,7 @@ class Employee extends User
         $breakEnd = Setting::value('end_break_time', 'time')->format('H') * 60 + Setting::value('end_break_time', 'time')->format('i') ?? 905;
         $remainingTime = 0;
         $faultCount = [];
-
+        
         foreach ($trackedData as $data) {
             $start = $data->start->format('H:i');
             $breakBegin = $data->break_start->format('H:i');
@@ -533,29 +673,27 @@ class Employee extends User
                     $late = ($start - $startTime) - $allowedTime;
 
                     //Check if the user end office before or exact 07:00 pm
-                    if ($end <= $endTime) {
+                    if ($late > 0 && $end <= $endTime) {
                         $faults += 1;
                         $checkedDate = $date;
-
-                        if ($late > 0) {
-                            $faultCount[] = [
-                                'date' => $date,
-                                'gap' => $late
-                            ];
-                        }
+                        
+                        $faultCount[] = [
+                            'date' => $date,
+                            'gap' => $late,
+                            'reason' => 'Late in'
+                        ];
                     }
 
                     //Check if the user end office after 07:00 pm
-                    if ($checkedDate != $date &&  $end > $endTime && $late > ($end - $endTime)) {
+                    if ($late > 0 && $checkedDate != $date &&  $end > $endTime && $late > ($end - $endTime)) {
                         $faults += 1;
                         $checkedDate = $date;
 
-                        if ($late > 0) {
-                            $faultCount[] = [
-                                'date' => $date,
-                                'gap' => $late
-                            ];
-                        }
+                        $faultCount[] = [
+                            'date' => $date,
+                            'gap' => $late,
+                            'reason' => 'Late in'
+                        ];
                     }
                 }
 
@@ -565,29 +703,27 @@ class Employee extends User
                     $early = ($end - $endTime) - $allowedTime;
 
                     //Check if the user start office after 11:10 am
-                    if ($start > $startTime) {
+                    if ($early > 0 && $start > $startTime) {
                         $faults += 1;
                         $checkedDate = $date;
 
-                        if ($early > 0) {
-                            $faultCount[] = [
-                                'date' => $date,
-                                'gap' => $early
-                            ];
-                        }
+                        $faultCount[] = [
+                            'date' => $date,
+                            'gap' => $early,
+                            'reason' => 'Early out'
+                        ];
                     }
 
                     //Check if the user start office before 11:00 am
-                    if ($checkedDate != $date && $start < $startTime && $early > ($startTime - $start)) {
+                    if ($early > 0 && $checkedDate != $date && $start < $startTime && $early > ($startTime - $start)) {
                         $faults += 1;
                         $checkedDate = $date;
 
-                        if ($early > 0) {
-                            $faultCount[] = [
-                                'date' => $date,
-                                'gap' => $early
-                            ];
-                        }
+                        $faultCount[] = [
+                            'date' => $date,
+                            'gap' => $early,
+                            'reason' => 'Early out'
+                        ];
                     }
                 }
 
@@ -608,10 +744,14 @@ class Employee extends User
                 ->where('duration', '<>', 'half day')
                 ->whereBetween('leave_date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
                 ->count();
-                $weekTotal = ($endTime - $startTime) * (6 - $leavesCount);
-                // dd($trackedData);
+                $halfLeavesCount = Leave::where('user_id', $id)
+                ->where('duration', 'half day')
+                ->whereBetween('leave_date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
+                ->count() / 2;
 
-                $weekEmpTotal = Employee::userTrackedData($id)
+                $weekTotal = ($endTime - $startTime) * (6 - ($leavesCount + $halfLeavesCount));
+
+                $weekEmpTotal = Employee::userTrackedData($id, 'object')
                     ->where('date', '<', $endOfWeek->addDays(1)->format('Y-m-d'))
                     ->sum('minutes');
 
@@ -620,15 +760,21 @@ class Employee extends User
                     if (isset($filledGap)) {
                         $extraTimes = $extraTimes - array_sum($filledGap);
                     }
-                    $remainingTime = ($remainingTime + $extraTimes) - $fault['gap'];
+                    $remainingTime = $extraTimes - $fault['gap'];
                     if ($remainingTime >= 0) {
                         $faults = $faults - 1;
                         $filledGap[] = $fault['gap'];
                     }
 
                     $timeArr[] = $remainingTime;
+                } else {
+                    $attendFaults[$fault['date']] = $fault['reason'];
                 }
             }
+        }
+
+        if ($return == 'array') {
+            return $attendFaults ?? [];
         }
         
         if ($faults > 0) {

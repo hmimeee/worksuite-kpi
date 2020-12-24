@@ -31,7 +31,7 @@ class AdminPanelController extends AdminBaseController
     {
         $this->pageTitle = 'KPI Overview';
         $this->topScorers = Employee::topFiveScorers();
-        $this->employees = Employee::exceptWriters()->active()->get();
+        $this->employees = Employee::exceptWriters()->active()->get()->sortByDesc('scores.total_score');
         $this->settings = Setting::all()->pluck('value', 'name');
         
         return view('kpi::admin.index', $this->data);
@@ -81,6 +81,11 @@ class AdminPanelController extends AdminBaseController
                 }
 
                 $heading = "<label class='badge badge-success'>Task:</label> <a href='javascript:;' onclick='showTask($task->id)'>$task->heading</a>";
+                
+                $faults = Employee::taskScores($employee->id, 'array');
+                if (array_key_exists($task->id, $faults['task_faults'])) {
+                     $heading .= " <label class='label label-danger'>".$faults['task_faults'][$task->id]['reason']."</label>";
+                }
 
                 $tasks[] = [
                     'id' => $task->id,
@@ -111,6 +116,11 @@ class AdminPanelController extends AdminBaseController
                 $members .= '</a>';
 
                 $heading = '<label class="badge badge-info">Article:</label> <a href="javascript:;" onclick="showTask('.$article->id.', \'article\')">'.$article->title.'</a>';
+
+                $faults = Employee::taskScores($employee->id, 'array');
+                if (array_key_exists($article->id, $faults['article_faults'])) {
+                    $heading .= " <label class='label label-danger'>" . $faults['article_faults'][$article->id]['reason'] . "</label>";
+                }
 
                 $tasks[] = [
                     'id' => $article->id,
@@ -151,9 +161,23 @@ class AdminPanelController extends AdminBaseController
 
     public function userData(Employee $user)
     {
-        $userData = Employee::userTrackedData($user->id);
+        $userData = Employee::userTrackedData($user->id, 'object');
+        $resons = Employee::attendanceScore($user->id, 'array');
 
-        return $userData;
+        foreach ($userData as $key => $data) {
+            $has_reason = array_key_exists($data->date->format('Y-m-d'), $resons) ? '<label class="label label-danger">'.$resons[$data->date->format('Y-m-d')].'</label>' : null;
+            $bindData[] = [
+                'date' => $data->date->format('d-m-Y').' '. $has_reason,
+                'start' => $data->start->format('h:i a'),
+                'break_start' => $data->break_start->format('h:i a'),
+                'break_end' => $data->break_end->format('h:i a'),
+                'end' => $data->end->format('h:i a'),
+                'minutes' => $data->minutes,
+                'leave' => $data->leave,
+            ];
+        }
+
+        return $bindData ?? [];
     }
 
     public function settings(Request $request)
@@ -167,8 +191,14 @@ class AdminPanelController extends AdminBaseController
                 'attendance_score',
                 'work_score',
                 'infraction_score',
-                'allowed_time'
+                'allowed_time',
+                'except_users',
+                'tracker_mail',
+                'tracker_key'
             ]);
+
+            //Except users ids array to string
+            $settings['except_users'] = implode(',', $request->except_users);
 
             foreach ($settings as $key => $value) {
                 Setting::updateOrCreate(['name' => $key], ['value' => $value]);
@@ -182,11 +212,13 @@ class AdminPanelController extends AdminBaseController
             $filename = $file->getClientOriginalName();
             $uploaded = $file->store('temp');
 
+            //Check if the module is a KPI module
             if (substr($filename, 0, 5) != 'KPI_v') {
                 Storage::delete($uploaded);
                 return Reply::error('Package is not a KPI module!');
             }
 
+            //Extract if the module is verified
             $zip = new ZipArchive;
             $res = $zip->open(public_path('/user-uploads/'.$uploaded));
             if ($res === TRUE) {
@@ -220,32 +252,9 @@ class AdminPanelController extends AdminBaseController
         $this->settings = Setting::all()->pluck('value', 'name');
         $this->allowedUsers = AllowedUser::all();
         $this->employees = Employee::exceptWriters()->active()->whereNotIn('id', $this->allowedUsers->pluck('user_id'))->get();
+        $this->allEmployees = Employee::active()->whereNotIn('id', $this->allowedUsers->pluck('user_id'))->get();
 
         return view('kpi::admin.settings', $this->data);
-    }
-
-    public function testing()
-    {
-        $fromTime = Setting::value('start_break_time', 'time')->format('h:i a');
-
-        dd($fromTime);
-        $response = Http::withBasicAuth("faisal@viserx.com", "nv3ba7rvo2hlfymx1n4byd")
-        ->get('https://www.webwork-tracker.com/rest-api/reports/daily-timeline', [
-            'start_date' => now()->firstOfMonth()->format('Y-m-d'),
-            'end_date' => now()->format('Y-m-d')
-        ]);
-
-        $data = $response->json();
-        foreach ($data['dateReport'] as $key => $value) {
-            $tracked[$value['dateTracked']][$value['email']][] = $value['projects'][0]['tasks'][0]['timeEntries'][0]['endDatetime'];
-            // foreach ($value['projects'][0]['tasks'] as $key => $time) {
-            //     dd($time);
-            //     $tracked[] = $time['timeEntries'][0]['beginDatetime'];
-            // }
-        }
-        $data['dateReport'][0]['projects'][0]['tasks'][0]['timeEntries'][0];
-
-        dd($tracked);
     }
 
     /**

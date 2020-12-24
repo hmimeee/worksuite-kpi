@@ -25,6 +25,10 @@ class Setting extends Model
     public static function value($key, $type = 'string')
     {
         $setting = Setting::where('name', $key)->first()->value ?? null;
+        if ($type == 'array' && $setting) {
+            return explode(',', $setting);
+        }
+
         if ($type =='number' && $setting) {
             return (int)  $setting;
         }

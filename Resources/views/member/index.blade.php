@@ -49,7 +49,41 @@
 
 		<div class="p-5">
 		</div>
-		<div class="col-md-3">
+		
+		<div class="col-xs-12">
+			<div class="white-box">
+				<div class="row">
+					<div class="col-xs-3">
+						<div class="col-xs-3">
+							<span class="badge badge-success">
+								<b>{{ $employees->pluck('id')->search(auth()->id())+1 }}</b>
+							</span>
+						</div>
+						<div class="col-xs-9">
+							<h4>{{ auth()->user()->name }}</h4>
+						</div>
+					</div>
+					<div class="col-xs-2 text-right">
+						<span class="counter">Attendance Score</span><br>
+						<span class="counter">{{ \Modules\KPI\Entities\Employee::attendanceScore(auth()->id()) }}</span>
+					</div>
+					<div class="col-xs-2 text-right">
+						<span class="counter">Task Score</span><br>
+						<span class="counter">{{ \Modules\KPI\Entities\Employee::taskScores(auth()->id()) }}</span>
+					</div>
+					<div class="col-xs-2 text-right">
+						<span class="counter">Infraction Score</span><br>
+						<span class="counter">{{ \Modules\KPI\Entities\Employee::infractionScore(auth()->id()) }}</span>
+					</div>
+					<div class="col-xs-2 text-right">
+						<span class="counter">Total Score</span><br>
+						<span class="counter">{{ \Modules\KPI\Entities\Employee::allScores(auth()->id())->total }}</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 High Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -64,7 +98,8 @@
 									</div>
 									<div class="col-xs-9 text-right">
 										<span class="text-muted counter">{{ $item->user->name }}</span><br>
-										<span class="counter">{{ $item->total_score }}</span>
+										<span
+											class="counter">{{ $item->total_score }}</span>
 									</div>
 								</div>
 							</div>
@@ -73,7 +108,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Attendance Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -99,7 +134,7 @@
 			</div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Work Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -125,7 +160,7 @@
 			</div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Infraction Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -135,7 +170,7 @@
 							<div class="row">
 								<div class="col-xs-3">
 									<div>
-										<span class="bg-danger-gradient"><b>{{$key+1}}</b></span>
+										<span class="bg-info-gradient"><b>{{$key+1}}</b></span>
 									</div>
 								</div>
 								<div class="col-xs-9 text-right">
@@ -151,7 +186,7 @@
 			</div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Low Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -176,7 +211,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Attendance Low Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -202,7 +237,7 @@
 			</div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Work Low Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -228,7 +263,7 @@
 			</div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-6 col-lg-3">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Infraction Low Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -238,7 +273,7 @@
 							<div class="row">
 								<div class="col-xs-3">
 									<div>
-										<span class="bg-danger-gradient"><b>{{$key+1}}</b></span>
+										<span class="bg-info-gradient"><b>{{$key+1}}</b></span>
 									</div>
 								</div>
 								<div class="col-xs-9 text-right">
@@ -274,7 +309,7 @@
 							<tbody>
 								@foreach($employees as $employee)
 									<tr>
-										<td>{{ $employee->id }}</td>
+										<td>{{$employees->pluck('id')->search($employee->id)+1}}</td>
 										<td><a href="javascript:;">{{ $employee->name }}</a></td>
 										<td>
 											{{ $employee->scores->attendance_score }}
@@ -308,6 +343,14 @@
 		$('#employees-table').DataTable({
 			"pageLength": 25
 		});
+
+		$('.kpi-tab').toggle('show');
+		$('.kpi-btn').hover(function () {
+			$('.kpi-tab').toggle('show');
+		})
+		// $('.kpi-tab-dismiss').click(function () {
+		// 	$('.kpi-tab').toggle('show');
+		// })
 	});
 </script>
 @endpush
