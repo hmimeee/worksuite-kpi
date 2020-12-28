@@ -126,7 +126,10 @@ class Employee extends User
         if ($date->format('Ym') < 202012) {
             $date = now();
         }
-        return $this->hasMany(Task::class, 'created_by')->whereBetween('completed_on', [$date->firstOfMonth()->format('Y-m-d H:i:s'), $date->endOfMonth()->format('Y-m-d H:i:s')])->where('board_column_id', 2);
+        $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');
+        $endDate = $date->endOfMonth()->format('Y-m-d H:i:s');
+        
+        return $this->hasMany(Task::class, 'created_by')->whereBetween('completed_on', [$startDate, $endDate])->where('board_column_id', 2);
     }
 
     public function infractions()
@@ -240,13 +243,21 @@ class Employee extends User
     public static function taskScores($id, $json = null)
     {
         $employee = Employee::find($id);
+        $employeeScore = EmployeeScore::where('user_id', $id)->first();
+        if ($employeeScore->updated_at->diffInHours() < 3 && $json != 'array') {
+            return $employeeScore->work_score;
+        }
+        if ($employeeScore->faults != null && $employeeScore->updated_at->diffInHours() < 3 && $json == 'array') {
+            return $employeeScore->faults;
+        }
+        
         $tasks = $employee->getCompletedTasks;
         $articles =  $employee->completedArticles;
         $createdArticles =  $employee->completedCreatedArticles;
         $createdTasks = $employee->finishedCreatedTasks;
         $baseScore = Setting::value('work_score', 'number') ?? 0;
         $score = number_format($baseScore, 1);
-        $totalWorks = $tasks->count() + $createdTasks->count() + $articles->count() + $createdArticles->count();
+        $totalWorks = $tasks->count() + $createdTasks->where('created_by', '<>', $id)->count() + $articles->count() + $createdArticles->where('creator', '<>', $id)->count();
         $deduct = $totalWorks ? ($baseScore /  $totalWorks) : 0;
 
         //Check task where the user is assignee
@@ -254,7 +265,6 @@ class Employee extends User
             // $faults = 0;
             $d = 0;
             $a = 0;
-            $taskFaults = [];
             foreach ($tasks as $item) {
                 //Collect the dates of the week
                 $period = new DatePeriod(
@@ -277,16 +287,34 @@ class Employee extends User
                 if ($setDate->format('Ymd') < $item->completed_on->format('Ymd')) {
                     // $faults += 1 / $item->users->count();
                     $days = $item->completed_on->diffInDays($setDate);
-                    $filterPoints = Employee::filterPoint($days, $deduct) / $item->users->count();
-                    $d = $d + $filterPoints;
-                    
-                    $taskFaults[$item->id] = [
-                        'task_id' => $item->id,
-                        'task_heading' => $item->heading,
-                        'deduct' => $filterPoints,
-                        'reason' => 'Delayed to complete',
-                        'days' => $days,
-                    ];
+                    // if ($days > 15) {
+                    //     $infraction = Infraction::where('task_id', $item->id)->first();
+                    //     if (!$infraction) {
+                    //         Infraction::create([
+                    //             'created_by' => 1,
+                    //             'user_id' => $id,
+                    //             'task_id' => $item->id,
+                    //             'infraction_type' => 'Delayed to complete task',
+                    //             'details' => 'Delayed too long time to complete the task. <br/>
+                    //         Task ID: ' . $item->id . '<br/>
+                    //         Task Heading: ' . $item->heading . '<br/>
+                    //         Task Due: ' . $item->due_date->format('d-m-Y').
+                    //         'Task Link: <a href="' .route('member.all-tasks.index').'?view-task='. $item->id . '">'. $item->heading.'</a><br/>',
+                    //             'reduction_points' => 5
+                    //         ]);
+                    //     }
+                    // } else {
+                        $filterPoints = Employee::filterPoint($days, $deduct) / $item->users->count();
+                        $d = $d + $filterPoints;
+
+                        $taskFaults[$item->id] = [
+                            'task_id' => $item->id,
+                            'task_heading' => $item->heading,
+                            'deduct' => $filterPoints,
+                            'reason' => 'Delayed to complete',
+                            'days' => $days,
+                        ];
+                    // }
                 }
 
                 //Check if the task completed before the deadline
@@ -300,6 +328,7 @@ class Employee extends User
                             'task_heading' => $item->heading,
                             'add' => $filterPoints,
                             'reason' => 'Completed early',
+                            'days' => $days,
                         ];
                     }
                 }
@@ -313,7 +342,6 @@ class Employee extends User
         if ($articles->count() > 0) {
             $d = 0;
             $a = 0;
-            $articleFaults = [];
             // $faults = 0;
             foreach ($articles as $art) {
                 //Get the due date
@@ -354,6 +382,7 @@ class Employee extends User
                         'article_title' => $art->title,
                         'deduct' => $filterPoints,
                         'reason' => 'Delayed to complete',
+                        'days' => $days,
                     ];
                 }
 
@@ -367,6 +396,7 @@ class Employee extends User
                         'article_title' => $art->title,
                         'add' => $filterPoints,
                         'reason' => 'Completed early',
+                        'days' => $days,
                     ];
                 }
             }
@@ -378,7 +408,6 @@ class Employee extends User
         if ($createdTasks->count() > 0) {
             // $faults = 0;
             $d = 0;
-            $taskFaults = [];
 
             foreach ($createdTasks as $task) {
 
@@ -429,7 +458,6 @@ class Employee extends User
         if ($createdArticles->count() > 0) {
             // $faults = 0;
             $d = 0;
-            $articleFaults = [];
             foreach ($createdArticles as $arti) {
                 $completed = $arti->logs->where('details', 'submitted the article for approval.')->last()->created_at ?? null;
                 $approved = $arti->logs->where('details', 'approved the article and transferred for publishing.')->first()->created_at ?? now();
@@ -474,7 +502,12 @@ class Employee extends User
         }
 
         if ($json == 'array') {
-            return array('task_faults' => $taskFaults ?? [], 'article_faults' => $articleFaults ?? []);
+            $allFaults = array('task_faults' => $taskFaults ?? [], 'article_faults' => $articleFaults ?? []);
+            $storedFaults = $employeeScore->update([
+                'work_score' => $score,
+                'faults' => $allFaults
+            ]);
+            return $employeeScore->faults;
         }
 
         if ($totalWorks == 0) {
@@ -482,10 +515,6 @@ class Employee extends User
         }
 
         $score = number_format($score, 1);
-
-        if ($json == 'json') {
-            return $score;
-        }
 
         return $score;
     }
@@ -504,14 +533,20 @@ class Employee extends User
 
     public static function topFiveScorers()
     {
-        $topFive['total'] = EmployeeScore::orderBy('total_score', 'desc')->get()->take(5);
-        $topFive['work'] = EmployeeScore::orderBy('work_score', 'desc')->get()->take(5);
-        $topFive['infraction'] = EmployeeScore::orderBy('infraction_score', 'desc')->get()->take(5);
-        $topFive['attendance'] = EmployeeScore::orderBy('attendance_score', 'desc')->get()->take(5);
-        $topFive['total_low'] = EmployeeScore::orderBy('total_score')->get()->take(5);
-        $topFive['work_low'] = EmployeeScore::orderBy('work_score')->get()->take(5);
-        $topFive['infraction_low'] = EmployeeScore::orderBy('infraction_score')->get()->take(5);
-        $topFive['attendance_low'] = EmployeeScore::orderBy('attendance_score')->get()->take(5);
+        //Remove unwanted users from list (Using ID)
+        $exceptUsers = Setting::value('except_users', 'array') ?? [];
+        $expIDs = 1;
+        if (count($exceptUsers) > 0)
+            $expIDs = $exceptUsers;
+
+        $topFive['total'] = EmployeeScore::orderBy('total_score', 'desc')->whereNotIn('user_id', $expIDs)->get()->take(5);
+        $topFive['work'] = EmployeeScore::orderBy('work_score', 'desc')->whereNotIn('user_id', $expIDs)->get()->take(5);
+        $topFive['infraction'] = EmployeeScore::orderBy('infraction_score', 'desc')->whereNotIn('user_id', $expIDs)->get()->take(5);
+        $topFive['attendance'] = EmployeeScore::orderBy('attendance_score', 'desc')->whereNotIn('user_id', $expIDs)->get()->take(5);
+        $topFive['total_low'] = EmployeeScore::orderBy('total_score')->whereNotIn('user_id', $expIDs)->get()->take(5);
+        $topFive['work_low'] = EmployeeScore::orderBy('work_score')->whereNotIn('user_id', $expIDs)->get()->take(5);
+        $topFive['infraction_low'] = EmployeeScore::orderBy('infraction_score')->whereNotIn('user_id', $expIDs)->get()->take(5);
+        $topFive['attendance_low'] = EmployeeScore::orderBy('attendance_score')->whereNotIn('user_id', $expIDs)->get()->take(5);
 
         return $topFive;
     }
@@ -646,7 +681,6 @@ class Employee extends User
         $endTime = Setting::value('end_time', 'time')->format('H') * 60 + Setting::value('end_time', 'time')->format('i') ?? 1139;
         $breakEnd = Setting::value('end_break_time', 'time')->format('H') * 60 + Setting::value('end_break_time', 'time')->format('i') ?? 905;
         $remainingTime = 0;
-        $faultCount = [];
         
         foreach ($trackedData as $data) {
             $start = $data->start->format('H:i');
@@ -736,10 +770,10 @@ class Employee extends User
         }
 
         //check if the user has filled the faults times in the week
-        if (!empty($faultCount)) {
+        if (isset($faultCount)) {
             foreach ($faultCount as $fault) {
                 $startOfWeek = Carbon::create($fault['date'])->startOfWeek(); //Starts from sunday
-                $endOfWeek = $startOfWeek->endOfWeek();
+                $endOfWeek = Carbon::create($fault['date'])->endOfWeek();
                 $leavesCount = Leave::where('user_id', $id)
                 ->where('duration', '<>', 'half day')
                 ->whereBetween('leave_date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
@@ -752,8 +786,8 @@ class Employee extends User
                 $weekTotal = ($endTime - $startTime) * (6 - ($leavesCount + $halfLeavesCount));
 
                 $weekEmpTotal = Employee::userTrackedData($id, 'object')
-                    ->where('date', '<', $endOfWeek->addDays(1)->format('Y-m-d'))
-                    ->sum('minutes');
+                ->whereBetween('date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
+                ->sum('minutes');
 
                 if ($weekEmpTotal > $weekTotal) {
                     $extraTimes = $weekEmpTotal - $weekTotal;

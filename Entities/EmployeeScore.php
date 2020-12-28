@@ -15,7 +15,17 @@ class EmployeeScore extends Model
         'total_score',
         'rating',
         'out_of',
-        'time_logged'
+        'time_logged',
+        'faults'
+    ];
+
+    protected $dates = [
+        'created_at',
+        'updated_at'
+    ];
+
+    protected $casts = [
+        'faults' => 'array'
     ];
 
     public function user()

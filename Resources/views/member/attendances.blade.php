@@ -65,7 +65,7 @@
 							<th>#</th>
 							<th>Name</th>
 							<th>Attended Days</th>
-							{{-- <th>Total Logged</th> --}}
+							<th>Total Logged</th>
 							<th>Score (out of {{$settings['attendance_score'] ?? 0}})</th>
 						</tr>
 					</thead>
@@ -83,6 +83,11 @@
 									@php($minutes = $hours - floor($hours))
 									{{floor($hours)}} hours {{round($minutes*60)}} minutes
 								</td> --}}
+								<td>
+									@php($hours = $log->sum('minutes')/60)
+									@php($minutes = $hours - floor($hours))
+									{{floor($hours)}} hours {{round($minutes*60)}} minutes
+								</td>
 								<td>
 									{{$employee->scores->attendance_score}}
 								</td>

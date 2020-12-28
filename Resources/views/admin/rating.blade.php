@@ -71,7 +71,7 @@
 						@foreach($employees as $employee)
 							<tr>
 								<td>{{$employee->id }}</td>
-								<td><a href="javascript:;" onclick="userTasks('{{$employee->id }}', '{{ $employee->name }}')">{{ $employee->name }}</a></td>
+								<td><a href="{{route('admin.kpi.rating.tasks')}}?employee={{$employee->id }}">{{ $employee->name }}</a></td>
 								<td>
 									@php($html = Modules\KPI\Entities\Employee::taskRating($employee->id))
 									{!!$html!!}
@@ -164,56 +164,56 @@
 		// tableReload();
 	});
 
-		function userTasks(id, name = null) {
-			$('#employeeId').val(id);
-			window.scrollTo({
-				top: 0,
-				behavior: 'smooth'
-			});
+		// function userTasks(id, name = null) {
+		// 	$('#employeeId').val(id);
+		// 	window.scrollTo({
+		// 		top: 0,
+		// 		behavior: 'smooth'
+		// 	});
 
-			if (name) {
-			$('#userName').text(name);
-			}
-			$('#tasks-table').DataTable().clear().destroy();
-			tableReload();
-		}
+		// 	if (name) {
+		// 	$('#userName').text(name);
+		// 	}
+		// 	$('#tasks-table').DataTable().clear().destroy();
+		// 	tableReload();
+		// }
 
-		function tableReload() {
-			url = '{{route('admin.kpi.rating.tasks')}}';
-			$.ajax({
-				method: 'GET',
-				url: url,
-				data: {
-					'month': '{{request()->month}}',
-					'year': '{{request()->year}}',
-					'employee': $('#employeeId').val(),
-				},
-				success: function (res) {
-					tasksTable(res);
-				}
-			});
-		}
+		// function tableReload() {
+		// 	url = '{{route('admin.kpi.rating.tasks')}}';
+		// 	$.ajax({
+		// 		method: 'GET',
+		// 		url: url,
+		// 		data: {
+		// 			'month': '{{request()->month}}',
+		// 			'year': '{{request()->year}}',
+		// 			'employee': $('#employeeId').val(),
+		// 		},
+		// 		success: function (res) {
+		// 			tasksTable(res);
+		// 		}
+		// 	});
+		// }
 
-		function tasksTable(data) {
-			$('#tasks-table').DataTable({
-				"pageLength": 25,
-				"data": data,
-				columns: [
-					{
-						data: 'id'
-					},
-					{
-						data: 'heading'
-					},
-					{
-						data: 'rating'
-					},
-					{
-						data: 'assignee'
-					}
-				]
-			});
-		}
+		// function tasksTable(data) {
+		// 	$('#tasks-table').DataTable({
+		// 		"pageLength": 25,
+		// 		"data": data,
+		// 		columns: [
+		// 			{
+		// 				data: 'id'
+		// 			},
+		// 			{
+		// 				data: 'heading'
+		// 			},
+		// 			{
+		// 				data: 'rating'
+		// 			},
+		// 			{
+		// 				data: 'assignee'
+		// 			}
+		// 		]
+		// 	});
+		// }
 
 		function showTask(id, type = null) {
 			$(".right-sidebar").slideDown(50).addClass("shw-rside");

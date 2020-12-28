@@ -11,6 +11,7 @@ use Modules\KPI\Entities\Employee;
 use Illuminate\Support\Facades\Http;
 use Modules\KPI\Entities\AllowedUser;
 use Illuminate\Support\Facades\Storage;
+use Yajra\DataTables\Facades\DataTables;
 use Modules\KPI\Datatables\RatingsDataTable;
 use Modules\KPI\Datatables\InfractionsDataTable;
 use App\Http\Controllers\Admin\AdminBaseController;

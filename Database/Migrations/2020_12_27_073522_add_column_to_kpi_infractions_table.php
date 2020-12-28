@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class AddColumnsToKpiInfractionsTable extends Migration
+class AddColumnToKpiInfractionsTable extends Migration
 {
     /**
      * Run the migrations.
@@ -14,8 +14,8 @@ class AddColumnsToKpiInfractionsTable extends Migration
     public function up()
     {
         Schema::table('kpi_infractions', function (Blueprint $table) {
-            $table->unsignedInteger('created_by')->after('id');
-            $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
+            $table->unsignedInteger('task_id')->nullable()->after('user_id');
+            $table->foreign('task_id')->references('id')->on('tasks')->onDelete('restrict');
         });
     }
 
@@ -26,9 +26,9 @@ class AddColumnsToKpiInfractionsTable extends Migration
      */
     public function down()
     {
-        if (Schema::hasColumn('kpi_infractions', 'created_by')) {
+        if (Schema::hasColumn('kpi_infractions', 'task_id')) {
             Schema::table('kpi_infractions', function (Blueprint $table) {
-                $table->dropColumn('created_by');
+                $table->dropColumn('task_id');
             });
         }
     }
