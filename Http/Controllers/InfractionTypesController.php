@@ -40,7 +40,8 @@ class InfractionTypesController extends MemberBaseController
     {
         $request->validate([
             'name' => 'required|string',
-            'reduction_points' => 'required|numeric',
+            'reduction_points' => 'required_without:addition_points',
+            'addition_points' => 'required_without:reduction_points',
         ]);
         $request['created_by'] = auth()->id();
 
@@ -81,7 +82,8 @@ class InfractionTypesController extends MemberBaseController
     {
         $request->validate([
             'name' => 'required|string',
-            'reduction_points' => 'required|numeric',
+            'reduction_points' => 'required_without:addition_points',
+            'addition_points' => 'required_without:reduction_points',
         ]);
 
         $type = InfractionType::findOrFail($id);

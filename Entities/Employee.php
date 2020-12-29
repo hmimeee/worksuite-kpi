@@ -151,7 +151,9 @@ class Employee extends User
     {
         $infractions = Employee::find($id)->infractions;
         $baseScore = Setting::value('infraction_score', 'number') ?? 0;
-        $score = $baseScore - $infractions->sum('reduction_points');
+        $deduct = $infractions->sum('reduction_points');
+        $add = $infractions->sum('addition_points');
+        $score = ($baseScore -  $deduct) + $add;
         if ($infractions->count() <= 0) {
              $score = $baseScore;
         }
@@ -244,10 +246,10 @@ class Employee extends User
     {
         $employee = Employee::find($id);
         $employeeScore = EmployeeScore::where('user_id', $id)->first();
-        if ($employeeScore->updated_at->diffInHours() < 3 && $json != 'array') {
+        if ($employeeScore && $employeeScore->updated_at->diffInHours() < 3 && $json != 'array') {
             return $employeeScore->work_score;
         }
-        if ($employeeScore->faults != null && $employeeScore->updated_at->diffInHours() < 3 && $json == 'array') {
+        if ($employeeScore && $employeeScore->faults != null && $employeeScore->updated_at->diffInHours() < 3 && $json == 'array') {
             return $employeeScore->faults;
         }
         
@@ -277,8 +279,8 @@ class Employee extends User
                 $leaves = $employee->leaves->where('duration', '<>', 'half day');
                 foreach ($period as $pdate) {
                     $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
-                    if (!$dleave) {
-                        $setDate = $pdate;
+                    if (!$dleave && !Holiday::checkHolidayByDate($pdate)) {
+                            $setDate = $pdate;
                         break;
                     }
                 }
@@ -360,7 +362,7 @@ class Employee extends User
                 $leaves = $employee->leaves->where('duration', '<>', 'half day');
                 foreach ($period as $pdate) {
                     $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
-                    if (!$dleave) {
+                    if (!$dleave && !Holiday::checkHolidayByDate($pdate)) {
                         $setDate = $pdate;
                         break;
                     }
@@ -422,7 +424,7 @@ class Employee extends User
                 $leaves = $employee->leaves->where('duration', '<>', 'half day');
                 foreach ($period as $pdate) {
                     $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
-                    if (!$dleave) {
+                    if (!$dleave && !Holiday::checkHolidayByDate($pdate)) {
                         $setDate = $pdate;
                         break;
                     }
@@ -473,7 +475,7 @@ class Employee extends User
                     $leaves = $employee->leaves->where('duration', '<>', 'half day');
                     foreach ($period as $pdate) {
                         $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
-                        if (!$dleave) {
+                        if (!$dleave && !Holiday::checkHolidayByDate($pdate)) {
                             $setDate = $pdate;
                             break;
                         }

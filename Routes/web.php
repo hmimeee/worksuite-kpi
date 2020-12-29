@@ -22,6 +22,9 @@ Route::group(['prefix' => 'admin/kpi', 'as' => 'admin.kpi.'], function () {
 	Route::get('attendances/user-data/{user}', 'Admin\AdminPanelController@userData')->name('attendances.userData');
 	Route::any('settings', 'Admin\AdminPanelController@settings')->name('settings');
 
+	//Employee profile routes
+	Route::get('profile/{user}', 'Admin\AdminPanelController@profile')->name('profile');
+
 	//Infractions routes
 	Route::resource('infractions', 'InfractionsController', ['except' => ['index']]);
 
@@ -40,6 +43,9 @@ Route::group(['prefix' => 'member/kpi', 'as' => 'member.kpi.'], function () {
 	Route::get('get-tasks', 'Member\MemberPanelController@rating')->name('rating.tasks');
 	Route::get('attendances', 'Member\MemberPanelController@attendances')->name('attendances.index');
 	Route::get('attendances/user-data/{user}', 'Member\MemberPanelController@userData')->name('attendances.userData');
+
+	//Employee profile routes
+	Route::get('profile/{user}', 'Member\MemberPanelController@profile')->name('profile');
 
 	//Infractions routes
 	Route::resource('infractions', 'InfractionsController', ['except' => ['index']]);

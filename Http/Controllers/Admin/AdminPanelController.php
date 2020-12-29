@@ -259,6 +259,41 @@ class AdminPanelController extends AdminBaseController
     }
 
     /**
+     * Show the page for an employee.
+     * @return Response
+     */
+    public function profile(Employee $user)
+    {
+        $this->employee = $user;
+        $this->settings = Setting::all()->pluck('value', 'name');
+        $this->employees = Employee::exceptWriters()->active()->get()->sortByDesc('scores.total_score');
+
+        $rate = $user->scores->rating;
+        $rating = '';
+        foreach (range(1, 5) as $i) {
+            $rating .= '<span class="fa-stack" style="width:1em"><i class="fa fa-star fa-stack-1x"></i>';
+            if ($rate > 0) {
+                $rating .= '<i class="fa fa-star fa-stack-1x text-warning"></i>';
+            }
+            $rate--;
+            $rating .= '</span>';
+        }
+
+        $this->rating = $rating;
+        if ($user->scores->total_score > 100) {
+            $this->performance = 'best';
+        } elseif ($user->scores->total_score >= 80) {
+            $this->performance = 'good';
+        } elseif ($user->scores->total_score >= 40) {
+            $this->performance = 'medium';
+        } else {
+            $this->performance = 'bad';
+        }
+
+        return view('kpi::profile', $this->data);
+    }
+
+    /**
      * Show the form for creating a new resource.
      * @return Response
      */

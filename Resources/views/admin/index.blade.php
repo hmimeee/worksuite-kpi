@@ -306,7 +306,7 @@
 								@foreach($employees as $employee)
 									<tr>
 										<td>{{$employees->pluck('id')->search($employee->id)+1}}</td>
-										<td><a href="javascript:;">{{ $employee->name }}</a></td>
+										<td><a href="javascript:;" onclick="viewProfile('{{ $employee->id }}')">{{ $employee->name }}</a></td>
 										<td>
 											{{ $employee->scores->attendance_score }}
 										</td>
@@ -328,6 +328,28 @@
 			</div>
 		</div>
 	</div>
+
+	{{--Ajax Modal--}}
+<div class="modal fade bs-modal-md in" id="profileModal" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+	<div class="modal-dialog modal-lg" id="modal-data-application">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-hidden="true"></button>
+				<span class="caption-subject font-red-sunglo bold uppercase" id="modelHeading"></span>
+			</div>
+			<div class="modal-body">
+				Loading...
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn default" data-dismiss="modal">Close</button>
+				<button type="button" class="btn blue">Save changes</button>
+			</div>
+		</div>
+		<!-- /.modal-content -->
+	</div>
+	<!-- /.modal-dialog -->.
+</div>
+{{--Ajax Modal Ends--}}
 @endsection
 
 @push('footer-script')
@@ -340,5 +362,12 @@
 			'order': [[5, 'desc']],
 		});
 	});
+
+	function viewProfile(id){
+		url = '{{route('admin.kpi.profile', ':id')}}';
+		url = url.replace(':id', id);
+
+		$.ajaxModal('#profileModal', url);
+	}
 </script>
 @endpush

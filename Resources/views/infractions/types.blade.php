@@ -17,6 +17,11 @@
             </div>
 
             <div class="form-group">
+                <label>Addition Points</label>
+                <input class="form-control" type="number" name="addition_points" placeholder="Type addition points here" step="any">
+            </div>
+
+            <div class="form-group">
                 <label>Details</label>
                 <textarea class="form-control" name="details" placeholder="Type details here"></textarea>
             </div>
@@ -43,6 +48,11 @@
             </div>
 
             <div class="form-group">
+                <label>Addition Points</label>
+                <input class="form-control" type="number" name="addition_points" placeholder="Type addition points here" step="any">
+            </div>
+
+            <div class="form-group">
                 <label>Details</label>
                 <textarea class="form-control" name="details" placeholder="Type details here"></textarea>
             </div>
@@ -60,6 +70,7 @@
                 <tr>
                     <th width="20%">Name</th>
                     <th>Reduction Points</th>
+                    <th>Addition Points</th>
                     <th>Details</th>
                     <th width="15%">Action</th>
                 </tr>
@@ -69,6 +80,7 @@
                 <tr>
                     <td>{{$type->name}}</td>
                     <td>{{number_format($type->reduction_points, 2)}}</td>
+                    <td>{{number_format($type->addition_points, 2)}}</td>
                     <td>{{$type->details}}</td>
                     <td>
                         @if(auth()->user()->hasKPIAccess && auth()->user()->hasRole('admin'))
@@ -174,6 +186,7 @@
 
                 $('#editInfractionTypeForm').find('input[name=name]').val(res.name);
                 $('#editInfractionTypeForm').find('input[name=reduction_points]').val(res.reduction_points);
+                $('#editInfractionTypeForm').find('input[name=addition_points]').val(res.addition_points);
                 $('#editInfractionTypeForm').find('textarea[name=details]').val(res.details);
                 $('#editInfractionTypeForm').data('id', res.id);
             }

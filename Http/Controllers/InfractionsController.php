@@ -36,28 +36,36 @@ class InfractionsController extends MemberBaseController
      */
     public function store(Request $request)
     {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'infraction_type' => 'required_without_all:addition_points,from_list',
+            'reduction_points' => 'required_without_all:addition_points,from_list',
+            'addition_points' => 'required_without_all:reduction_points,from_list',
+            'infraction_type_id' => 'required_with:from_list',
+        ]);
+
         $infractionType = InfractionType::find($request->infraction_type_id);
 
-        $infraction = new Infraction();
-        $infraction->created_by = auth()->id();
-        $infraction->user_id = $request->user_id;
-        $infraction->details = $request->details;
-        if ($request->from_list && $request->infraction_type_id) {
-            $infraction->infraction_type_id = $request->infraction_type_id;
-            $infraction->reduction_points = $infractionType->reduction_points;
-        } elseif ($request->infraction_type) {
-            $infraction->infraction_type = $request->infraction_type;
-            $infraction->reduction_points = $request->reduction_points;
+        $inf = new Infraction();
+        $inf->created_by = auth()->id();
+        $inf->user_id = $request->user_id;
+        $inf->details = $request->details;
+        if ($request->from_list) {
+            $inf->infraction_type_id = $request->infraction_type_id;
+            $inf->reduction_points = $infractionType->reduction_points;
+            $inf->addition_points = $infractionType->addition_points;
         } else {
-            return Reply::error('You must write or select infraction type!');
+            $inf->infraction_type = $request->infraction_type;
+            $inf->reduction_points = $request->reduction_points;
+            $inf->addition_points = $request->addition_points;
         }
 
-        if (!$infraction->save()) {
+        if (!$inf->save()) {
             return Reply::error('Something went wrong!');
         }
 
         $notifyTo = Employee::find($request->user_id);
-        Notification::send($notifyTo, new InfractionNotification($infraction, 'Added New Infraction', 'added a new infraction against you.'));
+        Notification::send($notifyTo, new InfractionNotification($inf, 'Added New Infraction', 'added a new infraction against you.'));
         return Reply::success('Infraction created successfully!');
     }
 
@@ -97,32 +105,31 @@ class InfractionsController extends MemberBaseController
     {
         $request->validate([
             'user_id' => 'required|exists:users,id',
-            'infraction_type_id' => 'required_with:from_list|exists:kpi_infraction_types,id',
-            'reduction_points' => 'required_without:from_list|numeric',
+            'infraction_type' => 'required_without_all:addition_points,from_list',
+            'reduction_points' => 'required_without_all:addition_points,from_list',
+            'addition_points' => 'required_without_all:reduction_points,from_list',
+            'infraction_type_id' => 'required_withl:from_list',
         ]);
 
-        $infraction = Infraction::find($id);
-
-        $infraction->user_id = $request->user_id;
-
-        if ($request->from_list && $request->infraction_type_id) {
-            $infraction->infraction_type_id = $request->infraction_type_id;
-
+        $inf = Infraction::find($id);
+        $inf->user_id = $request->user_id ?? $inf->user_id;
+        if ($request->from_list) {
+            $inf->infraction_type_id = $request->infraction_type_id;
             $type = InfractionType::find($request->infraction_type_id);
-            $infraction->reduction_points = $type->reduction_points;
-        } elseif ($request->infraction_type) {
-            $infraction->infraction_type_id = null;
-            $infraction->infraction_type = $request->infraction_type;
-            $infraction->reduction_points = $request->reduction_points;
+            $inf->reduction_points = $type->reduction_points;
+            $inf->addition_points = $type->addition_points;
         } else {
-            return Reply::error('You must write or select infraction type!');
+            $inf->infraction_type_id = null;
+            $inf->infraction_type = $request->infraction_type;
+            $inf->reduction_points = $request->reduction_points;
+            $inf->addition_points = $request->addition_points;
         }
 
         if ($request->details) {
-            $infraction->details = $request->details;
+            $inf->details = $request->details;
         }
 
-        $infraction->save();
+        $inf->save();
 
         return Reply::success('Infraction updated successfully!');
     }

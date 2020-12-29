@@ -16,6 +16,7 @@ class Infraction extends Model
         'infraction_type_id',
     	'infraction_type',
     	'reduction_points',
+        'addition_points',
     	'details',
     ];
 

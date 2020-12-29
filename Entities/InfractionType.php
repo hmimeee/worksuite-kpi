@@ -10,7 +10,8 @@ class InfractionType extends Model
     protected $fillable = [
     	'name',
     	'reduction_points',
-    	'details',
+        'addition_points',
+        'details',
     ];
 
     protected $table = 'kpi_infraction_types';

@@ -31,18 +31,25 @@
                     </div>
                 </div>
 
-                <div class="col-xs-10" id="manualInfractionTab" style="display: none;">
-                    <div class="col-xs-8">
+                <div class="col-xs-10 row" id="manualInfractionTab" style="display: none;">
+                    <div class="col-xs-6">
                         <div class="form-group">
                             <label class="control-label">Infraction Name</label>
                             <input class="form-control" type="text" name="infraction_type" placeholder="Write infraction type here">
                         </div>
                     </div>
 
-                    <div class="col-xs-4">
+                    <div class="col-xs-3">
                         <div class="form-group">
                             <label>Reduction Points</label>
                             <input class="form-control" type="number" name="reduction_points" placeholder="Type reduction points here" step="any">
+                        </div>
+                    </div>
+
+                    <div class="col-xs-3">
+                        <div class="form-group">
+                            <label>Addition Points</label>
+                            <input class="form-control" type="number" name="addition_points" placeholder="Type addition points here" step="any">
                         </div>
                     </div>
                 </div>
