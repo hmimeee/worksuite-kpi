@@ -85,7 +85,7 @@ class MemberPanelController extends MemberBaseController
                 $heading = "<label class='badge badge-success'>Task:</label> <a href='javascript:;' onclick='showTask($task->id)'>$task->heading</a>";
 
                 $faults = Employee::taskScores($employee->id, 'array');
-                if (array_key_exists($task->id, $faults['task_faults'])) {
+                if (count($faults) > 0 && array_key_exists($task->id, $faults['task_faults'])) {
                     $heading .= " <label class='label label-danger'>" . $faults['task_faults'][$task->id]['reason'] . "</label>";
                 }
 
@@ -120,7 +120,7 @@ class MemberPanelController extends MemberBaseController
                 $heading = '<label class="badge badge-info">Article:</label> <a href="javascript:;" onclick="showTask(' . $article->id . ', \'article\')">' . $article->title . '</a>';
 
                 $faults = Employee::taskScores($employee->id, 'array');
-                if (array_key_exists($article->id, $faults['article_faults'])) {
+                if (count($faults) > 0 && array_key_exists($article->id, $faults['article_faults'])) {
                     $heading .= " <label class='label label-danger'>" . $faults['article_faults'][$article->id]['reason'] . "</label>";
                 }
 

@@ -138,24 +138,37 @@
 							</div>
 						</div>
 					</div>
+					
 					<div class="col-md-12">
 						<div class="form-group">
 							<input type="hidden" name="update_setting" value="true">
 							<button class="btn btn-success btn-sm">Update</button>
 						</div>
 					</div>
-				</form>
 
+					<div class="col-md-12">
+						<div class="form-group">
+							<div class="input-group">
+								<span class="input-group-addon">Update System Data</span>
+								<a href="javascript:;" class="input-group-addon bg-info b-0 text-white" id="update-scores">Update
+									Scores</a>
+								<a href="javascript:;" class="input-group-addon bg-primary b-0 text-white" id="update-attendance-data">Update
+									Attendance Data</a>
+							</div>
+						</div>
+					</div>
+				</form>
+				
 				<form method="post" id="update-module-form" enctype="multipart/form-data">
 					@csrf
 					<div class="form-group">
-							<div class="input-group">
-								<span class="input-group-addon">Update Module</span>
-								<input type="file" name="module" class="form-control" style="display: inline; padding-top: 3px;">
-								<a href="javascript:;" class="input-group-addon bg-success b-0 text-white" id="update-module">Upload</a>
-								<input type="hidden" name="update_module" value="true">
-							</div>
+						<div class="input-group">
+							<span class="input-group-addon">Update Module</span>
+							<input type="file" name="module" class="form-control" style="display: inline; padding-top: 3px;">
+							<a href="javascript:;" class="input-group-addon bg-success b-0 text-white" id="update-module">Upload</a>
+							<input type="hidden" name="update_module" value="true">
 						</div>
+					</div>
 				</form>
 			</div>
 		</div>
@@ -296,6 +309,34 @@
 				if (response.status == "success") {
 					swal("Success!", response.message, "success");
 					property.remove();
+				} else {
+					swal("Warning!", response.message, "warning");
+				}
+			}
+		})
+	})
+
+	$('body #update-scores').click(function(e) {
+		$.ajax({
+			type: 'GET',
+			url: '{{route('admin.kpi.settings')}}?update_scores=true',
+			success: function (response) {
+				if (response.status == "success") {
+					swal("Success!", response.message, "success");
+				} else {
+					swal("Warning!", response.message, "warning");
+				}
+			}
+		})
+	})
+
+	$('body #update-attendance-data').click(function(e) {
+		$.ajax({
+			type: 'GET',
+			url: '{{route('admin.kpi.settings')}}?update_attendance_data=true',
+			success: function (response) {
+				if (response.status == "success") {
+					swal("Success!", response.message, "success");
 				} else {
 					swal("Warning!", response.message, "warning");
 				}

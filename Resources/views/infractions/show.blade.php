@@ -6,23 +6,28 @@
     <div class="portlet-body">
         <div class="row">
             <div class="col-xs-12" >
-                <div class="col-xs-6 col-md-3 font-12">
+                <div class="col-md-3 font-12">
                     <label class="font-12">Employee</label><br>
                     <img src="{{ $infraction->user->image_url }}" class="img-circle" width="25" height="25"> 
                     <a href="{{ $user->hasRole('admin') ? route('admin.employees.show', $infraction->user->id) : route('member.employees.show', $infraction->user->id) }}">{{$infraction->user->name}}</a>
                 </div>
 
-                <div class="col-xs-6 col-md-3 font-12">
+                <div class="col-md-3 font-12">
                     <label class="font-12">Infraction Type</label><br>
                     {!! $infraction->type ? '<label class="label label-info">'.$infraction->type->name.'</label>' : '<label class="label label-inverse">'.$infraction->infraction_type.'</label>' !!}
                 </div>
 
-                <div class="col-xs-6 col-md-3 font-12">
-                    <label class="font-12">Reduction Points</label><br>
+                <div class="col-md-2 font-12">
+                    <label class="font-12">Deduction Points</label><br>
                     {{$infraction->reduction_points}}
                 </div>
 
-                <div class="col-xs-6 col-md-3 font-12">
+                <div class="col-md-2 font-12">
+                    <label class="font-12">Addition Points</label><br>
+                    {{$infraction->addition_points}}
+                </div>
+
+                <div class="col-md-2 font-12">
                     <label class="font-12">Date</label><br>
                     {{$infraction->created_at->format('d M Y')}}
                 </div>

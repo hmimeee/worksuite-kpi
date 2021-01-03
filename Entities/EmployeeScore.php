@@ -16,12 +16,14 @@ class EmployeeScore extends Model
         'rating',
         'out_of',
         'time_logged',
-        'faults'
+        'faults',
+        'date',
     ];
 
     protected $dates = [
         'created_at',
-        'updated_at'
+        'updated_at',
+        'date'
     ];
 
     protected $casts = [

@@ -49,38 +49,102 @@
 
 		<div class="p-5">
 		</div>
-		<div class="col-md-12">
-			<div class="white-box">
-				<div class="row">
-					<div class="col-xs-3 row">
-						<div class="col-xs-3">
-							<span class="badge badge-success"><b>{{$employees->pluck('id')->search(auth()->id())+1}}</b></span>
+
+		<div class="col-sm-12 col-md-4">
+			<div class="panel panel-inverse">
+				<div class="panel-heading">Your Scores</div>
+				<div class="panel-wrapper collapse in">
+					<div class="panel-body">
+						<div class="white-box">
+							<div class="row">
+								<div class="col-xs-3">
+									<div>
+										<span class="bg-success-gradient">
+											<i class="ti-stats-up"></i>
+										</span>
+									</div>
+								</div>
+								<div class="col-xs-9 text-right">
+									<span class="text-muted counter">Rank Position</span><br>
+									<span
+										class="counter">{{$employees->pluck('id')->search(auth()->id())+1}}</span>
+								</div>
+							</div>
 						</div>
-						<div class="col-xs-9">
-						<h4>{{ auth()->user()->name }}</h4>
+
+						<div class="white-box">
+							<div class="row">
+								<div class="col-xs-3">
+									<div>
+										<span class="bg-success-gradient">
+											<i class="ti-timer"></i>
+										</span>
+									</div>
+								</div>
+								<div class="col-xs-9 text-right">
+									<span class="text-muted counter">Attendance Score</span><br>
+									<span
+										class="counter">{{ \Modules\KPI\Entities\Employee::attendanceScore(auth()->id()) }}</span>
+								</div>
+							</div>
 						</div>
-					</div>
-					<div class="col-xs-2 text-right">
-						<span class="counter">Attendance Score</span><br>
-						<span class="counter">{{ \Modules\KPI\Entities\Employee::attendanceScore(auth()->id()) }}</span>
-					</div>
-					<div class="col-xs-2 text-right">
-						<span class="counter">Task Score</span><br>
-						<span class="counter">{{ \Modules\KPI\Entities\Employee::taskScores(auth()->id()) }}</span>
-					</div>
-					<div class="col-xs-2 text-right">
-						<span class="counter">Infraction Score</span><br>
-						<span class="counter">{{ \Modules\KPI\Entities\Employee::infractionScore(auth()->id()) }}</span>
-					</div>
-					<div class="col-xs-2 text-right">
-						<span class="counter">Total Score</span><br>
-						<span class="counter">{{ \Modules\KPI\Entities\Employee::allScores(auth()->id())->total }}</span>
+
+						<div class="white-box">
+							<div class="row">
+								<div class="col-xs-3">
+									<div>
+										<span class="bg-success-gradient">
+											<i class="ti-layers"></i>
+										</span>
+									</div>
+								</div>
+								<div class="col-xs-9 text-right">
+									<span class="text-muted counter">Task Score</span><br>
+									<span
+										class="counter">{{ \Modules\KPI\Entities\Employee::taskScores(auth()->id()) }}</span>
+								</div>
+							</div>
+						</div>
+
+						<div class="white-box">
+							<div class="row">
+								<div class="col-xs-3">
+									<div>
+										<span class="bg-success-gradient">
+											<i class="ti-alert"></i>
+										</span>
+									</div>
+								</div>
+								<div class="col-xs-9 text-right">
+									<span class="text-muted counter">Infraction Score</span><br>
+									<span
+										class="counter">{{ \Modules\KPI\Entities\Employee::infractionScore(auth()->id()) }}</span>
+								</div>
+							</div>
+						</div>
+
+						<div class="white-box">
+							<div class="row">
+								<div class="col-xs-3">
+									<div>
+										<span class="bg-success-gradient">
+											<i class="ti-plus"></i>
+										</span>
+									</div>
+								</div>
+								<div class="col-xs-9 text-right">
+									<span class="text-muted counter">Total Score</span><br>
+									<span
+										class="counter">{{ \Modules\KPI\Entities\Employee::allScores(auth()->id())->total }}</span>
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<div class="col-md-6 col-lg-3">
+		<div class="col-sm-6 col-md-4">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 High Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -105,85 +169,8 @@
 				</div>
 			</div>
 		</div>
-		<div class="col-md-6 col-lg-3">
-			<div class="panel panel-inverse">
-				<div class="panel-heading">Top 5 Attendance Scorers</div>
-				<div class="panel-wrapper collapse in">
-					<div class="panel-body">
-						@foreach($topScorers['attendance'] as $key => $item)
-						<div class="white-box">
-							<div class="row">
-								<div class="col-xs-3">
-									<div>
-										<span class="bg-danger-gradient"><b>{{$key+1}}</b></span>
-									</div>
-								</div>
-								<div class="col-xs-9 text-right">
-									<span class="text-muted counter">{{ $item->user->name }}</span><br>
-									<span
-										class="counter">{{ $item->attendance_score }}</span>
-								</div>
-							</div>
-						</div>
-						@endforeach
-					</div>
-				</div>
-			</div>
-		</div>
 
-		<div class="col-md-6 col-lg-3">
-			<div class="panel panel-inverse">
-				<div class="panel-heading">Top 5 Work Scorers</div>
-				<div class="panel-wrapper collapse in">
-					<div class="panel-body">
-						@foreach($topScorers['work'] as $key => $item)
-						<div class="white-box">
-							<div class="row">
-								<div class="col-xs-3">
-									<div>
-										<span class="bg-warning-gradient"><b>{{$key+1}}</b></span>
-									</div>
-								</div>
-								<div class="col-xs-9 text-right">
-									<span class="text-muted counter">{{ $item->user->name }}</span><br>
-									<span
-										class="counter">{{ $item->work_score }}</span>
-								</div>
-							</div>
-						</div>
-						@endforeach
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<div class="col-md-6 col-lg-3">
-			<div class="panel panel-inverse">
-				<div class="panel-heading">Top 5 Infraction Scorers</div>
-				<div class="panel-wrapper collapse in">
-					<div class="panel-body">
-						@foreach($topScorers['infraction'] as $key => $item)
-						<div class="white-box">
-							<div class="row">
-								<div class="col-xs-3">
-									<div>
-										<span class="bg-info-gradient"><b>{{$key+1}}</b></span>
-									</div>
-								</div>
-								<div class="col-xs-9 text-right">
-									<span class="text-muted counter">{{ $item->user->name }}</span><br>
-									<span
-										class="counter">{{ $item->infraction_score }}</span>
-								</div>
-							</div>
-						</div>
-						@endforeach
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<div class="col-md-6 col-lg-3">
+		<div class="col-sm-6 col-md-4">
 			<div class="panel panel-inverse">
 				<div class="panel-heading">Top 5 Low Scorers</div>
 				<div class="panel-wrapper collapse in">
@@ -193,7 +180,7 @@
 								<div class="row">
 									<div class="col-xs-3">
 										<div>
-											<span class="bg-success-gradient"><b>{{ $key+1 }}</b></span>
+											<span class="bg-danger-gradient"><b>{{ $key+1 }}</b></span>
 										</div>
 									</div>
 									<div class="col-xs-9 text-right">
@@ -203,83 +190,6 @@
 									</div>
 								</div>
 							</div>
-						@endforeach
-					</div>
-				</div>
-			</div>
-		</div>
-		<div class="col-md-6 col-lg-3">
-			<div class="panel panel-inverse">
-				<div class="panel-heading">Top 5 Attendance Low Scorers</div>
-				<div class="panel-wrapper collapse in">
-					<div class="panel-body">
-						@foreach($topScorers['attendance_low'] as $key => $item)
-						<div class="white-box">
-							<div class="row">
-								<div class="col-xs-3">
-									<div>
-										<span class="bg-danger-gradient"><b>{{$key+1}}</b></span>
-									</div>
-								</div>
-								<div class="col-xs-9 text-right">
-									<span class="text-muted counter">{{ $item->user->name }}</span><br>
-									<span
-										class="counter">{{ $item->attendance_score }}</span>
-								</div>
-							</div>
-						</div>
-						@endforeach
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<div class="col-md-6 col-lg-3">
-			<div class="panel panel-inverse">
-				<div class="panel-heading">Top 5 Work Low Scorers</div>
-				<div class="panel-wrapper collapse in">
-					<div class="panel-body">
-						@foreach($topScorers['work_low'] as $key => $item)
-						<div class="white-box">
-							<div class="row">
-								<div class="col-xs-3">
-									<div>
-										<span class="bg-warning-gradient"><b>{{$key+1}}</b></span>
-									</div>
-								</div>
-								<div class="col-xs-9 text-right">
-									<span class="text-muted counter">{{ $item->user->name }}</span><br>
-									<span
-										class="counter">{{ $item->work_score }}</span>
-								</div>
-							</div>
-						</div>
-						@endforeach
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<div class="col-md-6 col-lg-3">
-			<div class="panel panel-inverse">
-				<div class="panel-heading">Top 5 Infraction Low Scorers</div>
-				<div class="panel-wrapper collapse in">
-					<div class="panel-body">
-						@foreach($topScorers['infraction_low'] as $key => $item)
-						<div class="white-box">
-							<div class="row">
-								<div class="col-xs-3">
-									<div>
-										<span class="bg-info-gradient"><b>{{$key+1}}</b></span>
-									</div>
-								</div>
-								<div class="col-xs-9 text-right">
-									<span class="text-muted counter">{{ $item->user->name }}</span><br>
-									<span
-										class="counter">{{ $item->infraction_score }}</span>
-								</div>
-							</div>
-						</div>
 						@endforeach
 					</div>
 				</div>
@@ -306,7 +216,7 @@
 								@foreach($employees as $employee)
 									<tr>
 										<td>{{$employees->pluck('id')->search($employee->id)+1}}</td>
-										<td><a href="javascript:;" onclick="viewProfile('{{ $employee->id }}')">{{ $employee->name }}</a></td>
+										<td><a href="javascript:;" onclick="viewProfile('{{ $employee->id }}')">{{ $employee->name }}</a> {!!$employee->scores->total_score > 100 ? '<span class="label label-warning"><i class="ti-crown"></i></span>' : '' !!}</td>
 										<td>
 											{{ $employee->scores->attendance_score }}
 										</td>
@@ -364,7 +274,7 @@
 	});
 
 	function viewProfile(id){
-		url = '{{route('admin.kpi.profile', ':id')}}';
+		url = '{{route('admin.kpi.profile', ':id')}}?year={{ request()->year }}&month={{ request()->month }}';
 		url = url.replace(':id', id);
 
 		$.ajaxModal('#profileModal', url);

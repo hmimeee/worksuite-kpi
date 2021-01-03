@@ -84,7 +84,7 @@ class AdminPanelController extends AdminBaseController
                 $heading = "<label class='badge badge-success'>Task:</label> <a href='javascript:;' onclick='showTask($task->id)'>$task->heading</a>";
                 
                 $faults = Employee::taskScores($employee->id, 'array');
-                if (array_key_exists($task->id, $faults['task_faults'])) {
+                if (count($faults) > 0 && array_key_exists($task->id, $faults['task_faults'])) {
                      $heading .= " <label class='label label-danger'>".$faults['task_faults'][$task->id]['reason']."</label>";
                 }
 
@@ -119,7 +119,7 @@ class AdminPanelController extends AdminBaseController
                 $heading = '<label class="badge badge-info">Article:</label> <a href="javascript:;" onclick="showTask('.$article->id.', \'article\')">'.$article->title.'</a>';
 
                 $faults = Employee::taskScores($employee->id, 'array');
-                if (array_key_exists($article->id, $faults['article_faults'])) {
+                if (count($faults) > 0 && array_key_exists($article->id, $faults['article_faults'])) {
                     $heading .= " <label class='label label-danger'>" . $faults['article_faults'][$article->id]['reason'] . "</label>";
                 }
 
@@ -249,6 +249,16 @@ class AdminPanelController extends AdminBaseController
             return Reply::success('Removed successfully');
         }
 
+        if ($request->has('update_scores')) {
+            Employee::updateScore(true);
+            return Reply::success('Scores updated successfully');
+        }
+
+        if ($request->has('update_attendance_data')) {
+            Employee::trackedData();
+            return Reply::success('Data updated successfully');
+        }
+
         $this->pageTitle = 'KPI: Settings';
         $this->settings = Setting::all()->pluck('value', 'name');
         $this->allowedUsers = AllowedUser::all();
@@ -266,9 +276,9 @@ class AdminPanelController extends AdminBaseController
     {
         $this->employee = $user;
         $this->settings = Setting::all()->pluck('value', 'name');
-        $this->employees = Employee::exceptWriters()->active()->get()->sortByDesc('scores.total_score');
+        $this->employees = auth()->user()->hasKPIAccess ? Employee::exceptWriters()->active()->get()->sortByDesc('scores.total_score') : Employee::whereId(auth()->id())->get();
 
-        $rate = $user->scores->rating;
+        $rate = $user->scores->first()->rating;
         $rating = '';
         foreach (range(1, 5) as $i) {
             $rating .= '<span class="fa-stack" style="width:1em"><i class="fa fa-star fa-stack-1x"></i>';
@@ -280,11 +290,11 @@ class AdminPanelController extends AdminBaseController
         }
 
         $this->rating = $rating;
-        if ($user->scores->total_score > 100) {
+        if ($user->scores->first()->total_score > 100) {
             $this->performance = 'best';
-        } elseif ($user->scores->total_score >= 80) {
+        } elseif ($user->scores->first()->total_score >= 80) {
             $this->performance = 'good';
-        } elseif ($user->scores->total_score >= 40) {
+        } elseif ($user->scores->first()->total_score >= 40) {
             $this->performance = 'medium';
         } else {
             $this->performance = 'bad';

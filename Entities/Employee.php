@@ -28,12 +28,38 @@ class Employee extends User
 
     public function scores()
     {
-        $update = $this->hasOne(EmployeeScore::class, 'user_id')->first()->updated_at ?? null;
-        if (!$update || $update->diffInHours(now()) > 2) {
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+        $date = Carbon::createFromDate($year, $month, date('d'));
+        if ($date->format('Ym') < 202012) {
+            $date = now();
+        }
+        $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');
+        $endDate = $date->endOfMonth()->format('Y-m-d H:i:s');
+
+        $update = $this->hasMany(EmployeeScore::class, 'user_id')->whereBetween('date', [$startDate, $endDate])->first()->updated_at ?? null;
+        
+        if (!$update || $update->diffInHours(now()) > 2 || request()->has('update_scores')) {
             Employee::updateScore();
         }
 
-        return $this->hasOne(EmployeeScore::class, 'user_id');
+        return $this->hasOne(EmployeeScore::class, 'user_id')->whereBetween('date', [$startDate, $endDate]);
+    }
+
+    public function getAttendances()
+    {
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+
+        $date = Carbon::createFromDate($year, $month, date('d'));
+        if ($date->format('Ym') < 202012) {
+            $date = now();
+        }
+
+        $startDate = $date->firstOfMonth()->format('Y-m-d H:i:s');
+        $endDate = $date->endOfMonth()->format('Y-m-d H:i:s');
+
+        return $this->hasMany(TrackedData::class, 'email', 'email')->whereBetween('date', [$startDate, $endDate]);
     }
 
     public function completedArticles()
@@ -245,7 +271,18 @@ class Employee extends User
     public static function taskScores($id, $json = null)
     {
         $employee = Employee::find($id);
-        $employeeScore = EmployeeScore::where('user_id', $id)->first();
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+        $date = Carbon::createFromDate($year, $month, date('d'));
+        if ($date->format('Ym') < 202012) {
+            $date = now();
+        }
+        $startDate = $date->firstOfMonth()->format('Y-m-d');
+        $endDate = $date->endOfMonth()->format('Y-m-d');
+
+        $employeeScore = EmployeeScore::where('user_id', $id)
+        ->whereBetween('date', [$startDate, $endDate])
+        ->first();
         if ($employeeScore && $employeeScore->updated_at->diffInHours() < 3 && $json != 'array') {
             return $employeeScore->work_score;
         }
@@ -300,8 +337,8 @@ class Employee extends User
                     //             'details' => 'Delayed too long time to complete the task. <br/>
                     //         Task ID: ' . $item->id . '<br/>
                     //         Task Heading: ' . $item->heading . '<br/>
-                    //         Task Due: ' . $item->due_date->format('d-m-Y').
-                    //         'Task Link: <a href="' .route('member.all-tasks.index').'?view-task='. $item->id . '">'. $item->heading.'</a><br/>',
+                    //         Task Due: ' . $item->due_date->format('d-m-Y').'<br/>
+                    //         Task Link: <a href="' .route('member.all-tasks.index').'?view-task='. $item->id . '">'. $item->heading.'</a><br/>',
                     //             'reduction_points' => 5
                     //         ]);
                     //     }
@@ -412,7 +449,6 @@ class Employee extends User
             $d = 0;
 
             foreach ($createdTasks as $task) {
-
                 //Collect the dates of the week
                 $period = new DatePeriod(
                     new DateTime($task->completed_on->format('Y-m-d')),
@@ -461,9 +497,30 @@ class Employee extends User
             // $faults = 0;
             $d = 0;
             foreach ($createdArticles as $arti) {
+                $parentDueDate = $arti->task ? $arti->task->due_date : null;
                 $completed = $arti->logs->where('details', 'submitted the article for approval.')->last()->created_at ?? null;
                 $approved = $arti->logs->where('details', 'approved the article and transferred for publishing.')->first()->created_at ?? now();
-                if ($completed) {
+
+                if ($completed && $parentDueDate && $completed->format('Ymd') <= $parentDueDate->format('Ymd')) {
+                    //Collect the dates of the week
+                    $period = new DatePeriod(
+                        new DateTime($parentDueDate->format('Y-m-d')),
+                        new DateInterval('P1D'),
+                        new DateTime($parentDueDate->addDays(6)->format('Y-m-d'))
+                    );
+
+                    //Check if the user has taken any leaves
+                    $leaves = $employee->leaves->where('duration', '<>', 'half day');
+                    foreach ($period as $pdate) {
+                        $dleave = $leaves->where('leave_date', $pdate->format('Y-m-d'))->first();
+                        if (!$dleave && !Holiday::checkHolidayByDate($pdate)) {
+                            $setDate = $pdate;
+                            break;
+                        }
+                    }
+                }
+
+                if ($completed && !isset($setDate)) {
                     //Collect the dates of the week
                     $period = new DatePeriod(
                         new DateTime($completed->format('Y-m-d')),
@@ -483,7 +540,7 @@ class Employee extends User
                 }
 
                 //Check if the user approved the article in time
-                if ($completed != null && $approved->format('Ymd') > $setDate->format('Ymd')) {
+                if ($completed != null && isset($setDate) && $setDate->format('Ymd') <= $parentDueDate->format('Ymd') && $approved->format('Ymd') > $setDate->format('Ymd')) {
                     // $faults += 1;
                     $days = $approved->diffInDays($setDate) - 2;
                     if ($days > 0) {
@@ -505,6 +562,9 @@ class Employee extends User
 
         if ($json == 'array') {
             $allFaults = array('task_faults' => $taskFaults ?? [], 'article_faults' => $articleFaults ?? []);
+            if (!$employeeScore) {
+                return [];
+            }
             $storedFaults = $employeeScore->update([
                 'work_score' => $score,
                 'faults' => $allFaults
@@ -527,7 +587,7 @@ class Employee extends User
         $tscore = Employee::taskScores($id, 'json');
         $iscore = Employee::infractionScore($id, 'json');
         $ascore = Employee::attendanceScore($id);
-        $total = $tscore + $iscore + $ascore;
+        $total = (is_numeric($tscore) ? $tscore : 0) + (is_numeric($iscore) ? $iscore : 0) + (is_numeric($ascore) ? $ascore : 0);
         $outof = Setting::value('infraction_score') + Setting::value('work_score') + Setting::value('attendance_score') ?? 0;
 
         return (object) ['total' => $total, 'outof' => $outof];
@@ -541,14 +601,39 @@ class Employee extends User
         if (count($exceptUsers) > 0)
             $expIDs = $exceptUsers;
 
-        $topFive['total'] = EmployeeScore::orderBy('total_score', 'desc')->whereNotIn('user_id', $expIDs)->get()->take(5);
-        $topFive['work'] = EmployeeScore::orderBy('work_score', 'desc')->whereNotIn('user_id', $expIDs)->get()->take(5);
-        $topFive['infraction'] = EmployeeScore::orderBy('infraction_score', 'desc')->whereNotIn('user_id', $expIDs)->get()->take(5);
-        $topFive['attendance'] = EmployeeScore::orderBy('attendance_score', 'desc')->whereNotIn('user_id', $expIDs)->get()->take(5);
-        $topFive['total_low'] = EmployeeScore::orderBy('total_score')->whereNotIn('user_id', $expIDs)->get()->take(5);
-        $topFive['work_low'] = EmployeeScore::orderBy('work_score')->whereNotIn('user_id', $expIDs)->get()->take(5);
-        $topFive['infraction_low'] = EmployeeScore::orderBy('infraction_score')->whereNotIn('user_id', $expIDs)->get()->take(5);
-        $topFive['attendance_low'] = EmployeeScore::orderBy('attendance_score')->whereNotIn('user_id', $expIDs)->get()->take(5);
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+        $date = Carbon::createFromDate($year, $month, date('d'));
+        if ($date->format('Ym') < 202012) {
+            $date = now();
+        }
+        $startDate = $date->startOfMonth()->format('Y-m-d');
+        $endDate = $date->endOfMonth()->format('Y-m-d');
+
+        $topFive['total'] = EmployeeScore::orderBy('total_score', 'desc')->whereNotIn('user_id', $expIDs)
+        ->whereBetween('date', [$startDate, $endDate])
+        ->get()->take(5);
+        $topFive['work'] = EmployeeScore::orderBy('work_score', 'desc')->whereNotIn('user_id', $expIDs)
+        ->whereBetween('date', [$startDate, $endDate])
+        ->get()->take(5);
+        $topFive['infraction'] = EmployeeScore::orderBy('infraction_score', 'desc')->whereNotIn('user_id', $expIDs)
+        ->whereBetween('date', [$startDate, $endDate])
+        ->get()->take(5);
+        $topFive['attendance'] = EmployeeScore::orderBy('attendance_score', 'desc')->whereNotIn('user_id', $expIDs)
+        ->whereBetween('date', [$startDate, $endDate])
+        ->get()->take(5);
+        $topFive['total_low'] = EmployeeScore::orderBy('total_score')->whereNotIn('user_id', $expIDs)
+        ->whereBetween('date', [$startDate, $endDate])
+        ->get()->take(5);
+        $topFive['work_low'] = EmployeeScore::orderBy('work_score')->whereNotIn('user_id', $expIDs)
+        ->whereBetween('date', [$startDate, $endDate])
+        ->get()->take(5);
+        $topFive['infraction_low'] = EmployeeScore::orderBy('infraction_score')->whereNotIn('user_id', $expIDs)
+        ->whereBetween('date', [$startDate, $endDate])
+        ->get()->take(5);
+        $topFive['attendance_low'] = EmployeeScore::orderBy('attendance_score')->whereNotIn('user_id', $expIDs)
+        ->whereBetween('date', [$startDate, $endDate])
+        ->get()->take(5);
 
         return $topFive;
     }
@@ -564,7 +649,7 @@ class Employee extends User
         $getMail = Setting::value('tracker_mail');
         $getKey = Setting::value('tracker_key');
 
-        if ($dbData == null || $dbData->updated_at->diffInHours(now()) > 2) {
+        if ($dbData == null || $dbData->updated_at->diffInHours(now()) > 2 || request()->has('update_attendance_data')) {
             $response = Http::withBasicAuth($getMail, $getKey)
             ->get('https://www.webwork-tracker.com/rest-api/reports/daily-timeline', [
                 'start_date' => now()->firstOfMonth()->format('Y-m-d'),
@@ -832,20 +917,48 @@ class Employee extends User
      * Updating all data to the database to reduce server pressure
      * @return true
      */
-    public static function updateScore()
+    public static function updateScore($truncate = false)
     {
         $allEmp = Employee::exceptWriters()->active()->get();
         $outOf = Setting::value('attendance_score') + Setting::value('work_score') + Setting::value('infraction_score');
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+        $date = Carbon::createFromDate($year, $month, date('d'));
+        if ($date->format('Ym') < 202012) {
+            $date = now();
+        }
+        if ($truncate) {
+            EmployeeScore::truncate();
+        }
+        
         foreach ($allEmp as $emp) {
-            EmployeeScore::updateOrCreate(['user_id' => $emp->id], [
-                'attendance_score' => Employee::attendanceScore($emp->id),
-                'work_score' => Employee::taskScores($emp->id, 'json'),
-                'infraction_score' => Employee::infractionScore($emp->id),
-                'total_score' => Employee::allScores($emp->id, 'json')->total,
-                'rating' => Employee::taskRating($emp->id, 'json'),
-                'out_of' => $outOf,
-                'time_logged' => $emp->loggedData->sum('minutes'),
-            ]);
+            $score = EmployeeScore::where('user_id', $emp->id)
+                ->whereBetween('date', [$date->startOfMonth()->format('Y-m-d'), $date->endOfMonth()->format('Y-m-d')])
+                ->first();
+            if ($score) {
+                $score->update([
+                    'attendance_score' => Employee::attendanceScore($emp->id),
+                    'work_score' => Employee::taskScores($emp->id, 'json'),
+                    'infraction_score' => Employee::infractionScore($emp->id),
+                    'total_score' => Employee::allScores($emp->id, 'json')->total,
+                    'rating' => Employee::taskRating($emp->id, 'json'),
+                    'out_of' => $outOf,
+                    'time_logged' => $emp->loggedData->sum('minutes'),
+                    'date' => $date->format('Y-m-d'),
+                ]);
+            } else {
+                EmployeeScore::create([
+                    'user_id' => $emp->id,
+                    'attendance_score' => Employee::attendanceScore($emp->id),
+                    'work_score' => Employee::taskScores($emp->id, 'json'),
+                    'infraction_score' => Employee::infractionScore($emp->id),
+                    'total_score' => Employee::allScores($emp->id, 'json')->total,
+                    'rating' => Employee::taskRating($emp->id, 'json'),
+                    'out_of' => $outOf,
+                    'time_logged' => $emp->loggedData->sum('minutes'),
+                    'date' => $date->format('Y-m-d'),
+                ]);
+            }
         }
 
         return true;

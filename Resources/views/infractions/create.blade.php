@@ -41,8 +41,8 @@
 
                     <div class="col-xs-3">
                         <div class="form-group">
-                            <label>Reduction Points</label>
-                            <input class="form-control" type="number" name="reduction_points" placeholder="Type reduction points here" step="any">
+                            <label>Deduction Points</label>
+                            <input class="form-control" type="number" name="reduction_points" placeholder="Type deduction points here" step="any">
                         </div>
                     </div>
 

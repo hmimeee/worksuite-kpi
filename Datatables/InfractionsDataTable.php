@@ -131,7 +131,7 @@ class InfractionsDataTable extends DataTable
             '#' => ['data' => 'id', 'name' => 'id', 'visible' => true],
             'user' => ['data' => 'user_name', 'name' => 'users.name'],
             'type' => ['data' => 'type_name', 'name' => 'kpi_infraction_types.name'],
-            'reduction' => ['data' => 'reduction_points', 'name' => 'reduction_points'],
+            'deduction' => ['data' => 'reduction_points', 'name' => 'reduction_points'],
             'addition' => ['data' => 'addition_points', 'name' => 'addition_points'],
             'date' => ['data' => 'created_at'],
             'infraction_type' => ['visible' => false],
