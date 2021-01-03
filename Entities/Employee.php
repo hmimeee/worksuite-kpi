@@ -641,9 +641,9 @@ class Employee extends User
     public static function trackedData()
     {
         $dbData = TrackedData::where('date', '>=', date('Y-m-d'))->get()->last();
-        $sdate = request()->year ?? date('Y');
-        $ldate = request()->month ?? date('m');
-        $date = Carbon::createFromDate($sdate, $ldate, 01);
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+        $date = Carbon::createFromDate($year, $month, 01);
         $startDate = $date->firstOfMonth()->format('Y-m-d');
         $endDate = $date->endOfMonth()->format('Y-m-d');
         $getMail = Setting::value('tracker_mail');

@@ -152,6 +152,7 @@
 								<span class="input-group-addon">Update System Data</span>
 								<a href="javascript:;" class="input-group-addon bg-info b-0 text-white" id="update-scores">Update
 									Scores</a>
+								<input type="month" class="form-control" name="year" placeholder="Month" id="monthyear">
 								<a href="javascript:;" class="input-group-addon bg-primary b-0 text-white" id="update-attendance-data">Update
 									Attendance Data</a>
 							</div>
@@ -333,7 +334,7 @@
 	$('body #update-attendance-data').click(function(e) {
 		$.ajax({
 			type: 'GET',
-			url: '{{route('admin.kpi.settings')}}?update_attendance_data=true',
+			url: '{{route('admin.kpi.settings')}}?update_attendance_data=true&date=' + $('#monthyear').val(),
 			success: function (response) {
 				if (response.status == "success") {
 					swal("Success!", response.message, "success");

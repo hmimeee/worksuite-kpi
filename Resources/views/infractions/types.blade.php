@@ -13,7 +13,7 @@
 
             <div class="form-group">
                 <label>Deduction Points</label>
-                <input class="form-control" type="number" name="deduction_points" placeholder="Type deduction points here" step="any">
+                <input class="form-control" type="number" name="reduction_points" placeholder="Type deduction points here" step="any">
             </div>
 
             <div class="form-group">
@@ -44,7 +44,7 @@
 
             <div class="form-group">
                 <label>Deduction Points</label>
-                <input class="form-control" type="number" name="deduction_points" placeholder="Type deduction points here" step="any">
+                <input class="form-control" type="number" name="reduction_points" placeholder="Type deduction points here" step="any">
             </div>
 
             <div class="form-group">

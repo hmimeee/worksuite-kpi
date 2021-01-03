@@ -2,7 +2,14 @@
 
 namespace Modules\KPI\Http\Controllers\Admin;
 
+use DateTime;
+use App\Leave;
+use DatePeriod;
 use ZipArchive;
+use App\Holiday;
+use DateInterval;
+use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Froiden\Envato\Helpers\Reply;
@@ -10,6 +17,7 @@ use Modules\KPI\Entities\Setting;
 use Modules\KPI\Entities\Employee;
 use Illuminate\Support\Facades\Http;
 use Modules\KPI\Entities\AllowedUser;
+use Modules\KPI\Entities\TrackedData;
 use Illuminate\Support\Facades\Storage;
 use Yajra\DataTables\Facades\DataTables;
 use Modules\KPI\Datatables\RatingsDataTable;
@@ -162,21 +170,68 @@ class AdminPanelController extends AdminBaseController
 
     public function userData(Employee $user)
     {
-        $userData = Employee::userTrackedData($user->id, 'object');
+        // $userData = Employee::userTrackedData($user->id, 'object');
         $resons = Employee::attendanceScore($user->id, 'array');
 
-        foreach ($userData as $key => $data) {
-            $has_reason = array_key_exists($data->date->format('Y-m-d'), $resons) ? '<label class="label label-danger">'.$resons[$data->date->format('Y-m-d')].'</label>' : null;
-            $bindData[] = [
-                'date' => $data->date->format('d-m-Y').' '. $has_reason,
-                'start' => $data->start->format('h:i a'),
-                'break_start' => $data->break_start->format('h:i a'),
-                'break_end' => $data->break_end->format('h:i a'),
-                'end' => $data->end->format('h:i a'),
-                'minutes' => $data->minutes,
-                'leave' => $data->leave,
-            ];
+        //Collect the dates of the month
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+        $date = Carbon::createFromDate($year, $month, 01);
+        $startDate = $date->firstOfMonth()->format('Y-m-d');
+        $endDate = $date->endOfMonth()->format('Ymd') <= now()->format('Ymd') ? $date->endOfMonth()->format('Y-m-d') : now()->format('Y-m-d');
+        $dates = CarbonPeriod::create($startDate, $endDate);
+
+        foreach ($dates as $dt) {
+            $udata = TrackedData::where('email', $user->email)->where('date', $dt->format('Y-m-d'))->first();
+            $has_reason = $udata && array_key_exists($udata->date->format('Y-m-d'), $resons) ? '<label class="label label-danger">' . $resons[$udata->date->format('Y-m-d')] . '</label>' : null;
+            $isHoliday = Holiday::where('date', $dt->format('Y-m-d'))->first();
+            $hasLeave = Leave::where('user_id', $user->id)->where('leave_date', $dt->format('Y-m-d'))->first();
+
+            if ($udata) {
+                $bindData[] = [
+                    'date' => $dt->format('d-m-Y') . ' ' . $has_reason,
+                    'start' => $udata->start->format('h:i a'),
+                    'break_start' => $udata->break_start->format('h:i a'),
+                    'break_end' => $udata->break_end->format('h:i a'),
+                    'end' => $udata->end->format('h:i a'),
+                    'minutes' => $udata->minutes,
+                    'leave' => $udata->leave,
+                ];
+            } elseif (!$udata && !$isHoliday && !$hasLeave) {
+                $bindData[] = [
+                    'date' => $dt->format('d-m-Y') . ' <label class="label label-danger">Absence</label>',
+                    'start' => null,
+                    'break_start' => null,
+                    'break_end' => null,
+                    'end' => null,
+                    'minutes' => null,
+                    'leave' => null,
+                ];
+            } elseif (!$udata && !$isHoliday && $hasLeave) {
+                $bindData[] = [
+                    'date' => $dt->format('d-m-Y') . ' <label class="label label-danger">Full Day Leave</label>',
+                    'start' => null,
+                    'break_start' => null,
+                    'break_end' => null,
+                    'end' => null,
+                    'minutes' => null,
+                    'leave' => null,
+                ];
+            }
         }
+
+        // foreach ($userData as $key => $data) {
+        //     $has_reason = array_key_exists($data->date->format('Y-m-d'), $resons) ? '<label class="label label-danger">'.$resons[$data->date->format('Y-m-d')].'</label>' : null;
+        //     $bindData[] = [
+        //         'date' => $data->date->format('d-m-Y').' '. $has_reason,
+        //         'start' => $data->start->format('h:i a'),
+        //         'break_start' => $data->break_start->format('h:i a'),
+        //         'break_end' => $data->break_end->format('h:i a'),
+        //         'end' => $data->end->format('h:i a'),
+        //         'minutes' => $data->minutes,
+        //         'leave' => $data->leave,
+        //     ];
+        // }
 
         return $bindData ?? [];
     }
@@ -255,6 +310,12 @@ class AdminPanelController extends AdminBaseController
         }
 
         if ($request->has('update_attendance_data')) {
+            if (!$request->date) {
+                return Reply::error('Please select the date first!');
+            }
+            $date = Carbon::create($request->date.'-01');
+            $request['year'] = $date->format('Y');
+            $request['month'] = $date->format('m');
             Employee::trackedData();
             return Reply::success('Data updated successfully');
         }
