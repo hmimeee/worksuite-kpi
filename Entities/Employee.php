@@ -10,6 +10,7 @@ use DatePeriod;
 use App\Holiday;
 use DateInterval;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Modules\KPI\Entities\Setting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -657,14 +658,14 @@ class Employee extends User
             ]);
 
             $data = $response->json();
-            foreach ($data['dateReport'] as $key => $dateReport) {
+            foreach ($data['dateReport'] as $dateReport) {
                 $email = $dateReport['email'];
                 $date = $dateReport['dateTracked'];
                 $tasks = $dateReport['projects'][0]['tasks'];
 
-                foreach ($tasks as $key => $task) {
+                foreach ($tasks as $task) {
                     $entries = $task['timeEntries'];
-                    foreach ($entries as $key => $entry) {
+                    foreach ($entries as $entry) {
                         $start = $date . ' ' . $entry['beginDatetime'];
                         $end = $date . ' ' . $entry['endDatetime'];
 
@@ -684,10 +685,7 @@ class Employee extends User
                     $breakEnd = [];
 
                     //Searching time from break time
-                    foreach ($info as $key => $value) {
-                        // $time = Carbon::createFromFormat('Y-m-d H:i', $value['start'], 'UTC')->setTimezone('Asia/Dhaka')->format('Hi');
-                        // $eTime = Carbon::createFromFormat('Y-m-d H:i', $value['start'], 'UTC')->setTimezone('Asia/Dhaka')->format('Y-m-d H:i');
-                        // $sTime = Carbon::createFromFormat('Y-m-d H:i', $value['end'], 'UTC')->setTimezone('Asia/Dhaka')->format('Y-m-d H:i');
+                    foreach ($info as $value) {
                         $time = Carbon::createFromFormat('Y-m-d H:i', $value['start'])->format('Hi');
                         $eTime = Carbon::createFromFormat('Y-m-d H:i', $value['start'])->format('Y-m-d H:i');
                         $sTime = Carbon::createFromFormat('Y-m-d H:i', $value['end'])->format('Y-m-d H:i');
@@ -755,39 +753,64 @@ class Employee extends User
         return $userData;
     }
 
+    public function comments()
+    {
+        return $this->hasMany('App\Comment', 'foreign_key', 'local_key');
+    }
+
     public static function attendanceScore($id, $return = 'score')
     {
         $trackedData = Employee::userTrackedData($id, 'object');
         $faults = 0;
         $baseScore = Setting::value('attendance_score', 'number') ?? 0;
         $attendances = $trackedData->count();
-        $deduct = $attendances ? $baseScore / $attendances : 0;
         $allowedTime = Setting::value('allowed_time');
         //Hour * 60 + Minutes = Total Minutes
         $startTime = Setting::value('start_time', 'time')->format('H') * 60 + Setting::value('start_time', 'time')->format('i') ?? 670;
         $endTime = Setting::value('end_time', 'time')->format('H') * 60 + Setting::value('end_time', 'time')->format('i') ?? 1139;
         $breakEnd = Setting::value('end_break_time', 'time')->format('H') * 60 + Setting::value('end_break_time', 'time')->format('i') ?? 905;
         $remainingTime = 0;
-        
-        foreach ($trackedData as $data) {
-            $start = $data->start->format('H:i');
-            $breakBegin = $data->break_start->format('H:i');
-            $breakFinish = $data->break_end->format('H:i');
-            $end = $data->end->format('H:i');
-            $date = $data->date->format('Y-m-d');
 
-            $start = explode(':', $start);
-            $start = ($start[0]*60)+$start[1];
-            $breakBegin = explode(':', $breakBegin);
-            $breakBegin = ($breakBegin[0] * 60) + $breakBegin[1];
-            $breakFinish = explode(':', $breakFinish);
-            $breakFinish = ($breakFinish[0] * 60) + $breakFinish[1];
-            $end = explode(':', $end);
-            $end = ($end[0] * 60) + $end[1];
+        //New Feature Absence Count
+        $year = request()->year ?? date('Y');
+        $month = request()->month ?? date('m');
+        $date = Carbon::createFromDate($year, $month, 01);
+        $startDate = $date->firstOfMonth()->format('Y-m-d');
+        $endDate = $date->endOfMonth()->format('Ymd') <= now()->format('Ymd') ? $date->endOfMonth()->format('Y-m-d') : now()->format('Y-m-d');
+        $dates = CarbonPeriod::create($startDate, $endDate);
+        $employee = User::find($id);
+        $isHolidays = Holiday::whereBetween('date', [$startDate, $endDate])->count();
+        $deduct = $attendances ? $baseScore / (count($dates) - $isHolidays) : 0;
+
+        foreach ($dates as $dt) {
+            //Get Data
+            $dt = $dt->format('Y-m-d');
+            $userData = TrackedData::where('date', $dt)
+            ->where('email', $employee->email)
+            ->first();
+            $isHoliday = Holiday::where('date', $dt)->first();
+            $hasLeave = Leave::where('user_id', $employee->id)->where('leave_date', $dt)->first();
             $checkedDate = null;
-            $hasLeave = Leave::where('user_id', $id)->where('leave_date', $date)->first();
 
-            if ($hasLeave == null) {
+            if ($userData) {
+                $start = $userData->start->format('H:i');
+                $breakBegin = $userData->break_start->format('H:i');
+                $breakFinish = $userData->break_end->format('H:i');
+                $end = $userData->end->format('H:i');
+                $date = $userData->date->format('Y-m-d');
+
+                //Parse Data
+                $start = explode(':', $start);
+                $start = ($start[0] * 60) + $start[1];
+                $breakBegin = explode(':', $breakBegin);
+                $breakBegin = ($breakBegin[0] * 60) + $breakBegin[1];
+                $breakFinish = explode(':', $breakFinish);
+                $breakFinish = ($breakFinish[0] * 60) + $breakFinish[1];
+                $end = explode(':', $end);
+                $end = ($end[0] * 60) + $end[1];
+            }
+
+            if ($userData && !$hasLeave && !$isHoliday) {
                 //Check if the user start office after 11:10 am
                 if ($start > $startTime) {
                     //Check the delayed time in minutes
@@ -796,22 +819,22 @@ class Employee extends User
                     //Check if the user end office before or exact 07:00 pm
                     if ($late > 0 && $end <= $endTime) {
                         $faults += 1;
-                        $checkedDate = $date;
-                        
+                        $checkedDate = $dt;
+
                         $faultCount[] = [
-                            'date' => $date,
+                            'date' => $dt,
                             'gap' => $late,
                             'reason' => 'Late in'
                         ];
                     }
 
                     //Check if the user end office after 07:00 pm
-                    if ($late > 0 && $checkedDate != $date &&  $end > $endTime && $late > ($end - $endTime)) {
+                    if ($checkedDate != $dt && $late > 0 &&  $end > $endTime && $late > ($end - $endTime)) {
                         $faults += 1;
-                        $checkedDate = $date;
+                        $checkedDate = $dt;
 
                         $faultCount[] = [
-                            'date' => $date,
+                            'date' => $dt,
                             'gap' => $late,
                             'reason' => 'Late in'
                         ];
@@ -819,40 +842,55 @@ class Employee extends User
                 }
 
                 //Check if the user end office before 07:00 pm
-                if ($checkedDate != $date && $end < $endTime) {
+                if ($checkedDate != $dt && $end < $endTime) {
                     //Check the early time in minutes
-                    $early = ($end - $endTime) - $allowedTime;
+                    $early = ($endTime - $end) - $allowedTime;
 
                     //Check if the user start office after 11:10 am
                     if ($early > 0 && $start > $startTime) {
                         $faults += 1;
-                        $checkedDate = $date;
+                        $checkedDate = $dt;
 
                         $faultCount[] = [
-                            'date' => $date,
+                            'date' => $dt,
                             'gap' => $early,
                             'reason' => 'Early out'
                         ];
                     }
 
                     //Check if the user start office before 11:00 am
-                    if ($early > 0 && $checkedDate != $date && $start < $startTime && $early > ($startTime - $start)) {
+                    if ($checkedDate != $dt && $early > 0 && $start < $startTime && $early > ($startTime - $start)) {
                         $faults += 1;
-                        $checkedDate = $date;
+                        $checkedDate = $dt;
 
                         $faultCount[] = [
-                            'date' => $date,
+                            'date' => $dt,
                             'gap' => $early,
                             'reason' => 'Early out'
                         ];
                     }
                 }
+            }
 
+            //Check if the user didn't came office without taking leave
+            if (!$userData && !$hasLeave && !$isHoliday) {
+                $faults += 1;
 
-                //Check if user took more time than break time limit
-                // if ($checkedDate != $date && $breakFinish > $breakEnd && ($breakFinish - $breakBegin) > 65) {
-                //     $faults += 1;
-                // }
+                $faultCount[] = [
+                    'date' => $dt,
+                    'gap' => 0,
+                    'reason' => 'Absence'
+                ];
+            }
+
+            if ($userData && $hasLeave && $hasLeave->duration == 'half day' && !$isHoliday) {
+                $faults += 1;
+
+                $faultCount[] = [
+                    'date' => $dt,
+                    'gap' => 0,
+                    'reason' => 'Half Day Leave'
+                ];
             }
         }
 

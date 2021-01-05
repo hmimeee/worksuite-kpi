@@ -170,8 +170,7 @@ class AdminPanelController extends AdminBaseController
 
     public function userData(Employee $user)
     {
-        // $userData = Employee::userTrackedData($user->id, 'object');
-        $resons = Employee::attendanceScore($user->id, 'array');
+        $reasons = Employee::attendanceScore($user->id, 'array');
 
         //Collect the dates of the month
         $year = request()->year ?? date('Y');
@@ -183,9 +182,14 @@ class AdminPanelController extends AdminBaseController
 
         foreach ($dates as $dt) {
             $udata = TrackedData::where('email', $user->email)->where('date', $dt->format('Y-m-d'))->first();
-            $has_reason = $udata && array_key_exists($udata->date->format('Y-m-d'), $resons) ? '<label class="label label-danger">' . $resons[$udata->date->format('Y-m-d')] . '</label>' : null;
             $isHoliday = Holiday::where('date', $dt->format('Y-m-d'))->first();
-            $hasLeave = Leave::where('user_id', $user->id)->where('leave_date', $dt->format('Y-m-d'))->first();
+            $hasLeave = Leave::where('user_id', $user->id)->where('leave_date', $dt->format('Y-m-d'))->where('duration', '<>', 'half day')->first();
+            $hasHalfLeave = Leave::where('user_id', $user->id)->where('leave_date', $dt->format('Y-m-d'))->where('duration', 'half day')->first();
+            $has_reason = null;
+            if ($udata && array_key_exists($udata->date->format('Y-m-d'), $reasons)) {
+                $reason = $reasons[$udata->date->format('Y-m-d')];
+                $has_reason = $reason == 'Half Day Leave' ? '<label class="label label-inverse">' . $reason . '</label>' : '<label class="label label-danger">' . $reason . '</label>';
+            }
 
             if ($udata) {
                 $bindData[] = [
@@ -197,41 +201,38 @@ class AdminPanelController extends AdminBaseController
                     'minutes' => $udata->minutes,
                     'leave' => $udata->leave,
                 ];
-            } elseif (!$udata && !$isHoliday && !$hasLeave) {
+            } elseif (!$udata && !$isHoliday && !$hasLeave && !$hasHalfLeave) {
                 $bindData[] = [
                     'date' => $dt->format('d-m-Y') . ' <label class="label label-danger">Absence</label>',
-                    'start' => null,
-                    'break_start' => null,
-                    'break_end' => null,
-                    'end' => null,
-                    'minutes' => null,
-                    'leave' => null,
+                    'start' => '--:--',
+                    'break_start' => '--:--',
+                    'break_end' => '--:--',
+                    'end' => '--:--',
+                    'minutes' => '--:--',
+                    'leave' => '--:--',
                 ];
-            } elseif (!$udata && !$isHoliday && $hasLeave) {
+            } elseif (!$udata && !$isHoliday && ($hasLeave || $hasHalfLeave)) {
                 $bindData[] = [
-                    'date' => $dt->format('d-m-Y') . ' <label class="label label-danger">Full Day Leave</label>',
-                    'start' => null,
-                    'break_start' => null,
-                    'break_end' => null,
-                    'end' => null,
-                    'minutes' => null,
-                    'leave' => null,
+                    'date' => $dt->format('d-m-Y') . ' <label class="label label-inverse">' . ($hasHalfLeave ? 'Half Day Leave' : 'Full Day Leave') . '</label>',
+                    'start' => '--:--',
+                    'break_start' => '--:--',
+                    'break_end' => '--:--',
+                    'end' => '--:--',
+                    'minutes' => '--:--',
+                    'leave' => '--:--',
+                ];
+            } elseif (!$udata && $isHoliday && !$hasLeave && !$hasHalfLeave) {
+                $bindData[] = [
+                    'date' => $dt->format('d-m-Y') . ' <label class="label label-success">Holiday</label>',
+                    'start' => '--:--',
+                    'break_start' => '--:--',
+                    'break_end' => '--:--',
+                    'end' => '--:--',
+                    'minutes' => '--:--',
+                    'leave' => '--:--',
                 ];
             }
         }
-
-        // foreach ($userData as $key => $data) {
-        //     $has_reason = array_key_exists($data->date->format('Y-m-d'), $resons) ? '<label class="label label-danger">'.$resons[$data->date->format('Y-m-d')].'</label>' : null;
-        //     $bindData[] = [
-        //         'date' => $data->date->format('d-m-Y').' '. $has_reason,
-        //         'start' => $data->start->format('h:i a'),
-        //         'break_start' => $data->break_start->format('h:i a'),
-        //         'break_end' => $data->break_end->format('h:i a'),
-        //         'end' => $data->end->format('h:i a'),
-        //         'minutes' => $data->minutes,
-        //         'leave' => $data->leave,
-        //     ];
-        // }
 
         return $bindData ?? [];
     }
@@ -305,7 +306,14 @@ class AdminPanelController extends AdminBaseController
         }
 
         if ($request->has('update_scores')) {
+            if (!$request->date) {
+                return Reply::error('Please select the date first!');
+            }
+            $date = Carbon::create($request->date . '-01');
+            $request['year'] = $date->format('Y');
+            $request['month'] = $date->format('m');
             Employee::updateScore(true);
+            
             return Reply::success('Scores updated successfully');
         }
 
@@ -317,6 +325,7 @@ class AdminPanelController extends AdminBaseController
             $request['year'] = $date->format('Y');
             $request['month'] = $date->format('m');
             Employee::trackedData();
+
             return Reply::success('Data updated successfully');
         }
 
