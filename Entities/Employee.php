@@ -792,7 +792,7 @@ class Employee extends User
             $hasLeave = Leave::where('user_id', $employee->id)->where('leave_date', $dt)->first();
             $checkedDate = null;
 
-            if ($userData) {
+            if ($userData  && $date != date('Y-m-d')) {
                 $start = $userData->start->format('H:i');
                 $breakBegin = $userData->break_start->format('H:i');
                 $breakFinish = $userData->break_end->format('H:i');
@@ -810,7 +810,7 @@ class Employee extends User
                 $end = ($end[0] * 60) + $end[1];
             }
 
-            if ($userData && !$hasLeave && !$isHoliday) {
+            if ($userData && !$hasLeave && !$isHoliday && $date != date('Y-m-d')) {
                 //Check if the user start office after 11:10 am
                 if ($start > $startTime) {
                     //Check the delayed time in minutes
@@ -873,7 +873,7 @@ class Employee extends User
             }
 
             //Check if the user didn't came office without taking leave
-            if (!$userData && !$hasLeave && !$isHoliday) {
+            if (!$userData && !$hasLeave && !$isHoliday  && $date != date('Y-m-d')) {
                 $faults += 1;
 
                 $faultCount[] = [

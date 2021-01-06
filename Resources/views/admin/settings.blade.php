@@ -159,13 +159,25 @@
 						</div>
 					</div>
 				</form>
+
+				<form method="post" id="upload-documentation-form" enctype="multipart/form-data">
+					@csrf
+					<div class="form-group">
+						<div class="input-group">
+							<span class="input-group-addon">Upload Documentation</span>
+							<input type="file" name="documentation" class="form-control" style="display: inline; padding-top: 3px;" accept=".pdf">
+							<a href="javascript:;" class="input-group-addon bg-success b-0 text-white" id="upload-documentation">Upload</a>
+							<input type="hidden" name="upload_documentation" value="true">
+						</div>
+					</div>
+				</form>
 				
 				<form method="post" id="update-module-form" enctype="multipart/form-data">
 					@csrf
 					<div class="form-group">
 						<div class="input-group">
 							<span class="input-group-addon">Update Module</span>
-							<input type="file" name="module" class="form-control" style="display: inline; padding-top: 3px;">
+							<input type="file" name="module" class="form-control" style="display: inline; padding-top: 3px;" accept=".zip">
 							<a href="javascript:;" class="input-group-addon bg-success b-0 text-white" id="update-module">Upload</a>
 							<input type="hidden" name="update_module" value="true">
 						</div>
@@ -266,6 +278,32 @@
 				if (response.status == "success") {
 					swal("Success!", response.message, "success");
 					location.reload(true);
+				} else {
+					swal("Warning!", response.message, "warning");
+				}
+			}
+		})
+	})
+
+	$('#upload-documentation').click(function (e) {
+		if ($(this).prev().val() == '') {
+			$.showToastr('Please select a file of KPI documentation!', 'error');
+			return false;
+		}
+
+		btn = $(this);
+		btn.text('Uploading...');
+		formData = new FormData(document.getElementById('upload-documentation-form'));
+		$.ajax({
+			type: 'POST',
+			url: '{{route('admin.kpi.settings')}}',
+			contentType: false,
+			processData: false,
+			data: formData,
+			success: function (response) {
+				btn.text('Upload');
+				if (response.status == "success") {
+					swal("Success!", response.message, "success");
 				} else {
 					swal("Warning!", response.message, "warning");
 				}

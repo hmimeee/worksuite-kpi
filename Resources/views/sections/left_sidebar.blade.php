@@ -33,5 +33,11 @@
                 <span class="hide-menu">Settings</span>
             </a>
         </li>
+
+        <li>
+            <a href="{{route('admin.kpi.doc')}}" class="waves-effect">
+                <span class="hide-menu">Documentation</span>
+            </a>
+        </li>
     </ul>
 </li>

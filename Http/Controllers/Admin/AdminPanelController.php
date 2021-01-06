@@ -290,6 +290,16 @@ class AdminPanelController extends AdminBaseController
             }
         }
 
+        //upload kpi documentation
+        if ($request->hasFile('documentation') && $request->has('upload_documentation')) {
+            $request->validate(['documentation' => 'mimes:pdf']);
+            $file = $request->file('documentation');
+            $filename = $file->getClientOriginalName();
+            $uploaded = $file->storeAs('kpi', 'kpidoc.pdf');
+            Setting::updateOrCreate(['name' => 'kpidoc'], ['value' => $uploaded]);
+            return Reply::success('Uploaded documentation successfully');
+        }
+
         if ($request->has('add_allowed_users') && $request->allowed_users != null && $request->allowed_users != '') {
             foreach ($request->allowed_users as $userId) {
                 $addedUsers[] = AllowedUser::updateOrCreate([
@@ -371,6 +381,18 @@ class AdminPanelController extends AdminBaseController
         }
 
         return view('kpi::profile', $this->data);
+    }
+
+    /**
+     * View KPI documentation
+     * @return \Illuminate\View\View
+     */
+    public function doc()
+    {
+        $this->pageTitle = 'KPI Documentation';
+        $this->settings = Setting::all()->pluck('value', 'name');
+
+        return view('kpi::admin.doc', $this->data);
     }
 
     /**

@@ -280,6 +280,18 @@ class MemberPanelController extends MemberBaseController
     }
 
     /**
+     * View KPI documentation
+     * @return \Illuminate\View\View
+     */
+    public function doc()
+    {
+        $this->pageTitle = 'KPI Documentation';
+        $this->settings = Setting::all()->pluck('value', 'name');
+
+        return view('kpi::member.doc', $this->data);
+    }
+
+    /**
      * Show the form for creating a new resource.
      * @return Response
      */

@@ -27,5 +27,11 @@
                 <span class="hide-menu">Infractions</span>
             </a>
         </li>
+
+        <li>
+            <a href="{{route('member.kpi.doc')}}" class="waves-effect">
+                <span class="hide-menu">Documentation</span>
+            </a>
+        </li>
     </ul>
 </li>

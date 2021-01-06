@@ -25,6 +25,9 @@ Route::group(['prefix' => 'admin/kpi', 'as' => 'admin.kpi.'], function () {
 	//Employee profile routes
 	Route::get('profile/{user}', 'Admin\AdminPanelController@profile')->name('profile');
 
+	//Documentation
+	Route::get('documentation', 'Admin\AdminPanelController@doc')->name('doc');
+
 	//Infractions routes
 	Route::resource('infractions', 'InfractionsController', ['except' => ['index']]);
 
@@ -46,6 +49,9 @@ Route::group(['prefix' => 'member/kpi', 'as' => 'member.kpi.'], function () {
 
 	//Employee profile routes
 	Route::get('profile/{user}', 'Member\MemberPanelController@profile')->name('profile');
+
+	//Documentation
+	Route::get('documentation', 'Member\MemberPanelController@doc')->name('doc');
 
 	//Infractions routes
 	Route::resource('infractions', 'InfractionsController', ['except' => ['index']]);
