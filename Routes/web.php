@@ -12,7 +12,7 @@
 */
 
 //Admin panel routes
-Route::group(['prefix' => 'admin/kpi', 'as' => 'admin.kpi.'], function () {
+Route::group(['prefix' => 'admin/kpi', 'as' =>'admin.kpi.', 'middleware' => ['auth']], function () {
 
 	Route::get('overview', 'Admin\AdminPanelController@index')->name('overview');
 	Route::get('infractions', 'Admin\AdminPanelController@infractions')->name('infractions.index');
@@ -38,7 +38,7 @@ Route::group(['prefix' => 'admin/kpi', 'as' => 'admin.kpi.'], function () {
 });
 
 //Member panel routes
-Route::group(['prefix' => 'member/kpi', 'as' => 'member.kpi.'], function () {
+Route::group(['prefix' => 'member/kpi', 'as' =>'member.kpi.', 'middleware' => ['auth']], function () {
 
 	Route::get('overview', 'Member\MemberPanelController@index')->name('overview');
 	Route::get('infractions', 'Member\MemberPanelController@infractions')->name('infractions.index');

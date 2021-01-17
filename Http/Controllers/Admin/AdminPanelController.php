@@ -19,7 +19,9 @@ use Illuminate\Support\Facades\Http;
 use Modules\KPI\Entities\AllowedUser;
 use Modules\KPI\Entities\TrackedData;
 use Illuminate\Support\Facades\Storage;
+use Modules\KPI\Entities\SettingHistory;
 use Yajra\DataTables\Facades\DataTables;
+use Modules\KPI\Entities\OfficeTimeHistory;
 use Modules\KPI\Datatables\RatingsDataTable;
 use Modules\KPI\Datatables\InfractionsDataTable;
 use App\Http\Controllers\Admin\AdminBaseController;
@@ -254,6 +256,28 @@ class AdminPanelController extends AdminBaseController
                 'tracker_key'
             ]);
 
+            //Check if updated office start time
+            if ($request->start_time != Setting::find('start_time')->value) {
+                $startTime = Setting::find('start_time');
+                $addToHistory = OfficeTimeHistory::create([
+                    'start_time' => $startTime->value,
+                    'end_time' => $request->end_time
+                ]);
+
+                $this->history('office_time', 'updated office start time from ' . $startTime->value . ' to ' . $request->start_time);
+            }
+
+            //Check if updated office end time
+            if ($request->end_time != Setting::find('end_time')->value) {
+                $endTime = Setting::find('end_time');
+                $addToHistory = OfficeTimeHistory::create([
+                    'start_time' => $request->start_time,
+                    'end_time' => $endTime->value
+                ]);
+                
+                $this->history('office_time', 'updated office end time from ' . $endTime->value . ' to ' . $request->end_time);
+            }
+
             //Except users ids array to string
             $settings['except_users'] = implode(',', $request->except_users);
 
@@ -342,6 +366,7 @@ class AdminPanelController extends AdminBaseController
         $this->pageTitle = 'KPI: Settings';
         $this->settings = Setting::all()->pluck('value', 'name');
         $this->allowedUsers = AllowedUser::all();
+        $this->history = SettingHistory::all();
         $this->employees = Employee::exceptWriters()->active()->whereNotIn('id', $this->allowedUsers->pluck('user_id'))->get();
         $this->allEmployees = Employee::active()->whereNotIn('id', $this->allowedUsers->pluck('user_id'))->get();
 
@@ -393,6 +418,18 @@ class AdminPanelController extends AdminBaseController
         $this->settings = Setting::all()->pluck('value', 'name');
 
         return view('kpi::admin.doc', $this->data);
+    }
+
+    /**
+     * Setting office time changing history
+     */
+    public function history($key, $details)
+    {
+        SettingHistory::create([
+            'user_id' => auth()->id(),
+            'key' => $key,
+            'details' => $details
+        ]);
     }
 
     /**

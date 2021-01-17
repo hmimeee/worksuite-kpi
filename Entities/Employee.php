@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Http;
 use Modules\Article\Entities\Article;
 use Modules\KPI\Entities\AllowedUser;
 use Modules\Article\Entities\ArticleActivityLog;
+use stdClass;
 
 class Employee extends User
 {
@@ -765,10 +766,6 @@ class Employee extends User
         $baseScore = Setting::value('attendance_score', 'number') ?? 0;
         $attendances = $trackedData->count();
         $allowedTime = Setting::value('allowed_time');
-        //Hour * 60 + Minutes = Total Minutes
-        $startTime = Setting::value('start_time', 'time')->format('H') * 60 + Setting::value('start_time', 'time')->format('i') ?? 670;
-        $endTime = Setting::value('end_time', 'time')->format('H') * 60 + Setting::value('end_time', 'time')->format('i') ?? 1139;
-        $breakEnd = Setting::value('end_break_time', 'time')->format('H') * 60 + Setting::value('end_break_time', 'time')->format('i') ?? 905;
         $remainingTime = 0;
 
         //New Feature Absence Count
@@ -783,15 +780,26 @@ class Employee extends User
         $deduct = $attendances ? $baseScore / (count($dates) - $isHolidays) : 0;
 
         foreach ($dates as $dt) {
+            //Hour * 60 + Minutes = Total Minutes
+            $startTime = Setting::value('start_time', 'time')->format('H') * 60 + Setting::value('start_time', 'time')->format('i') ?? 660;
+            $endTime = Setting::value('end_time', 'time')->format('H') * 60 + Setting::value('end_time', 'time')->format('i') ?? 1140;
+            $breakEnd = Setting::value('end_break_time', 'time')->format('H') * 60 + Setting::value('end_break_time', 'time')->format('i') ?? 900;
+
             //Get Data
             $dt = $dt->format('Y-m-d');
             $userData = TrackedData::where('date', $dt)
             ->where('email', $employee->email)
-            ->first();
+                ->first();
             $isHoliday = Holiday::where('date', $dt)->first();
             $hasLeave = Leave::where('user_id', $employee->id)->where('leave_date', $dt)->first();
             $checkedDate = null;
-
+            
+            $timeHistory = OfficeTimeHistory::whereDate('created_at', '>', $dt)->latest()->first();
+            if ($timeHistory) {
+                $startTime = Carbon::createFromFormat('h:i A', $timeHistory->start_time)->format('H') * 60 + Carbon::createFromFormat('h:i A', $timeHistory->start_time)->format('i');
+                $endTime = Carbon::createFromFormat('h:i A', $timeHistory->end_time)->format('H') * 60 + Carbon::createFromFormat('h:i A', $timeHistory->end_time)->format('i');
+            }
+        
             if ($userData  && $date != date('Y-m-d')) {
                 $start = $userData->start->format('H:i');
                 $breakBegin = $userData->break_start->format('H:i');
@@ -811,6 +819,7 @@ class Employee extends User
             }
 
             if ($userData && !$hasLeave && !$isHoliday && $date != date('Y-m-d')) {
+
                 //Check if the user start office after 11:10 am
                 if ($start > $startTime) {
                     //Check the delayed time in minutes
@@ -884,8 +893,6 @@ class Employee extends User
             }
 
             if ($userData && $hasLeave && $hasLeave->duration == 'half day' && !$isHoliday) {
-                $faults += 1;
-
                 $faultCount[] = [
                     'date' => $dt,
                     'gap' => 0,
@@ -897,6 +904,10 @@ class Employee extends User
         //check if the user has filled the faults times in the week
         if (isset($faultCount)) {
             foreach ($faultCount as $fault) {
+                if($fault['reason'] == 'Half Day Leave'){
+                    continue;
+                }
+
                 $startOfWeek = Carbon::create($fault['date'])->startOfWeek(); //Starts from sunday
                 $endOfWeek = Carbon::create($fault['date'])->endOfWeek();
                 $leavesCount = Leave::where('user_id', $id)

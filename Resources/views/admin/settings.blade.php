@@ -224,6 +224,29 @@
 				</tbody>
 			</table>
 		</div>
+
+		<div class="p-5">
+			<h4 class="block-head p-5">Settings Update History</h4>
+			<div style="max-height: 300px; overflow: scroll;">
+				<div class="steamline m-l-15">
+					@foreach($history->sortByDesc('id') as $log)
+						<div class="sl-item">
+							<div class="sl-left" style="margin-left: -13px !important;"><img class="img-circle"
+									src="@if($log->user->image !=null) /user-uploads/avatar/{{ $log->user->image }} @else /img/default-profile-2.png @endif"
+									width="25" height="25" alt="">
+							</div>
+							<div class="sl-right">
+								<div>
+									<h6><b>{{ $log->user->name }}</b> {{ $log->details }}</h6>
+									<span
+										class="sl-date">{{ $log->created_at->format('d-m-Y H:s a') }}</span>
+								</div>
+							</div>
+						</div>
+					@endforeach
+				</div>
+			</div>
+		</div>
 	</div>
 </div>
 @endsection
