@@ -197,9 +197,19 @@ class MemberPanelController extends MemberBaseController
                 $has_reason = $reason == 'Half Day Leave' ? '<label class="label label-inverse">' . $reason . '</label>' : '<label class="label label-danger">' . $reason . '</label>';
             }
 
-            if ($udata) {
+            if ($udata && !$isHoliday) {
                 $bindData[] = [
                     'date' => $dt->format('d-m-Y') . ' ' . $has_reason,
+                    'start' => $udata->start->format('h:i a'),
+                    'break_start' => $udata->break_start->format('h:i a'),
+                    'break_end' => $udata->break_end->format('h:i a'),
+                    'end' => $udata->end->format('h:i a'),
+                    'minutes' => $udata->minutes,
+                    'leave' => $udata->leave,
+                ];
+            } elseif ($udata && $isHoliday) {
+                $bindData[] = [
+                    'date' => $dt->format('d-m-Y') . ' <label class="label label-success">Holiday</label>',
                     'start' => $udata->start->format('h:i a'),
                     'break_start' => $udata->break_start->format('h:i a'),
                     'break_end' => $udata->break_end->format('h:i a'),
