@@ -856,7 +856,7 @@ class Employee extends User
                     $early = ($endTime - $end) - $allowedTime;
 
                     //Check if the user start office after 11:10 am
-                    if ($early > 0 && $start > $startTime) {
+                    if ($early > 0 && $start >= $startTime) {
                         $faults += 1;
                         $checkedDate = $dt;
 
