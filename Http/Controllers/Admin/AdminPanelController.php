@@ -44,7 +44,7 @@ class AdminPanelController extends AdminBaseController
         $this->topScorers = Employee::topFiveScorers();
         $this->employees = Employee::exceptWriters()->active()->get()->sortByDesc('scores.total_score');
         $this->settings = Setting::all()->pluck('value', 'name');
-        
+
         return view('kpi::admin.index', $this->data);
     }
 
@@ -57,7 +57,7 @@ class AdminPanelController extends AdminBaseController
         $this->pageTitle = 'Infractions';
         $this->employees = Employee::exceptWriters()->active()->get();
         $this->settings = Setting::all()->pluck('value', 'name');
-        
+
         return $dataTable->render('kpi::admin.infractions', $this->data);
     }
 
@@ -92,10 +92,10 @@ class AdminPanelController extends AdminBaseController
                 }
 
                 $heading = "<label class='badge badge-success'>Task:</label> <a href='javascript:;' onclick='showTask($task->id)'>$task->heading</a>";
-                
+
                 $faults = Employee::taskScores($employee->id, 'array');
                 if (count($faults) > 0 && array_key_exists($task->id, $faults['task_faults'])) {
-                     $heading .= " <label class='label label-danger'>".$faults['task_faults'][$task->id]['reason']."</label>";
+                    $heading .= " <label class='label label-danger'>" . $faults['task_faults'][$task->id]['reason'] . "</label>";
                 }
 
                 $tasks[] = [
@@ -126,7 +126,7 @@ class AdminPanelController extends AdminBaseController
                 alt="user" class="img-circle" width="25" height="25"> ';
                 $members .= '</a>';
 
-                $heading = '<label class="badge badge-info">Article:</label> <a href="javascript:;" onclick="showTask('.$article->id.', \'article\')">'.$article->title.'</a>';
+                $heading = '<label class="badge badge-info">Article:</label> <a href="javascript:;" onclick="showTask(' . $article->id . ', \'article\')">' . $article->title . '</a>';
 
                 $faults = Employee::taskScores($employee->id, 'array');
                 if (count($faults) > 0 && array_key_exists($article->id, $faults['article_faults'])) {
@@ -150,7 +150,7 @@ class AdminPanelController extends AdminBaseController
         $this->employees = Employee::exceptWriters()->active()->get();
         $this->settings = Setting::all()->pluck('value', 'name');
         $this->tasks = $tasks;
-        
+
         return view('kpi::admin.rating', $this->data);
     }
 
@@ -165,7 +165,7 @@ class AdminPanelController extends AdminBaseController
         $this->employees = Employee::exceptWriters()->active()->get();
         $this->logData = Employee::trackedData();
         $this->settings = Setting::all()->pluck('value', 'name');
-        
+
         return view('kpi::admin.attendances', $this->data);
     }
 
@@ -284,7 +284,7 @@ class AdminPanelController extends AdminBaseController
                     'start_time' => $request->start_time,
                     'end_time' => $endTime->value
                 ]);
-                
+
                 $this->history('office_time', 'updated office end time from ' . $endTime->value . ' to ' . $request->end_time);
             }
 
@@ -294,6 +294,8 @@ class AdminPanelController extends AdminBaseController
             foreach ($settings as $key => $value) {
                 Setting::updateOrCreate(['name' => $key], ['value' => $value]);
             }
+
+            $this->history('except_employees', 'updated except employees');
 
             return back()->withSuccess('Settings updated successfully');
         }
@@ -311,12 +313,13 @@ class AdminPanelController extends AdminBaseController
 
             //Extract if the module is verified
             $zip = new ZipArchive;
-            $res = $zip->open(public_path('/user-uploads/'.$uploaded));
+            $res = $zip->open(public_path('/user-uploads/' . $uploaded));
             if ($res === TRUE) {
                 $zip->extractTo(base_path('Modules'));
                 $zip->close();
                 Storage::delete($uploaded);
 
+                $this->history('module_update', 'updated the KPI module');
                 return Reply::success('Successfully updated!');
             } else {
                 Storage::delete($uploaded);
@@ -331,6 +334,9 @@ class AdminPanelController extends AdminBaseController
             $filename = $file->getClientOriginalName();
             $uploaded = $file->storeAs('kpi', 'kpidoc.pdf');
             Setting::updateOrCreate(['name' => 'kpidoc'], ['value' => $uploaded]);
+
+            $this->history('documentation_update', 'uploaded the KPI documentation');
+
             return Reply::success('Uploaded documentation successfully');
         }
 
@@ -341,11 +347,15 @@ class AdminPanelController extends AdminBaseController
                 ]);
             }
 
+            $this->history('allowed_users', 'added the KPI managing users');
             return isset($addedUsers) ? Reply::success('Added successfully') : Reply::error('Something went wrong');
         }
 
         if ($request->has('remove_permission')) {
+            $user = Employee::find($request->allowed_user);
             AllowedUser::find($request->allowed_user)->delete();
+
+            $this->history('allowed_users', 'removed '. $user->name .' from the KPI managing users list');
             return Reply::success('Removed successfully');
         }
 
@@ -357,7 +367,7 @@ class AdminPanelController extends AdminBaseController
             $request['year'] = $date->format('Y');
             $request['month'] = $date->format('m');
             Employee::updateScore(true);
-            
+
             return Reply::success('Scores updated successfully');
         }
 
@@ -365,7 +375,7 @@ class AdminPanelController extends AdminBaseController
             if (!$request->date) {
                 return Reply::error('Please select the date first!');
             }
-            $date = Carbon::create($request->date.'-01');
+            $date = Carbon::create($request->date . '-01');
             $request['year'] = $date->format('Y');
             $request['month'] = $date->format('m');
             Employee::trackedData();
