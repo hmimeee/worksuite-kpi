@@ -378,7 +378,7 @@ class AdminPanelController extends AdminBaseController
         $this->allowedUsers = AllowedUser::all();
         $this->history = SettingHistory::all();
         $this->employees = Employee::exceptWriters()->active()->whereNotIn('id', $this->allowedUsers->pluck('user_id'))->get();
-        $this->allEmployees = Employee::active()->whereNotIn('id', $this->allowedUsers->pluck('user_id'))->get();
+        $this->allEmployees = Employee::active()->get();
 
         return view('kpi::admin.settings', $this->data);
     }
