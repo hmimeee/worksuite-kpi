@@ -41,7 +41,7 @@ class Employee extends User
 
         $update = $this->hasMany(EmployeeScore::class, 'user_id')->whereBetween('date', [$startDate, $endDate])->first()->updated_at ?? null;
         
-        if (!$update || $update->diffInHours(now()) > 2 || request()->has('update_scores')) {
+        if (!$update || request()->has('update_scores')) {
             Employee::updateScore();
         }
 
@@ -325,7 +325,7 @@ class Employee extends User
                 }
                 
                 //Check if the task was not completed in time
-                if ($setDate->format('Ymd') < $item->completed_on->format('Ymd')) {
+                if (isset($setDate) && $setDate->format('Ymd') < $item->completed_on->format('Ymd')) {
                     // $faults += 1 / $item->users->count();
                     $days = $item->completed_on->diffInDays($setDate);
                     // if ($days > 15) {
@@ -640,7 +640,7 @@ class Employee extends User
         return $topFive;
     }
 
-    public static function trackedData()
+    public static function trackedData($update = false)
     {
         $dbData = TrackedData::where('date', '>=', date('Y-m-d'))->get()->last();
         $year = request()->year ?? date('Y');
@@ -651,7 +651,7 @@ class Employee extends User
         $getMail = Setting::value('tracker_mail');
         $getKey = Setting::value('tracker_key');
 
-        if ($dbData == null || $dbData->updated_at->diffInHours(now()) > 2 || request()->has('update_attendance_data')) {
+        if ($dbData == null || $update || request()->has('update_attendance_data')) {
             $response = Http::withBasicAuth($getMail, $getKey)
             ->get('https://www.webwork-tracker.com/rest-api/reports/daily-timeline', [
                 'start_date' => now()->firstOfMonth()->format('Y-m-d'),
@@ -777,7 +777,7 @@ class Employee extends User
         $dates = CarbonPeriod::create($startDate, $endDate);
         $employee = User::find($id);
         $isHolidays = Holiday::whereBetween('date', [$startDate, $endDate])->count();
-        $deduct = $attendances ? $baseScore / (count($dates) - $isHolidays) : 0;
+        $deduct = $attendances && count($dates) > 1 ? $baseScore / (count($dates) - $isHolidays) : 0;
 
         foreach ($dates as $dt) {
             //Hour * 60 + Minutes = Total Minutes
