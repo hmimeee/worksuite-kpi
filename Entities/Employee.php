@@ -542,7 +542,7 @@ class Employee extends User
                 }
 
                 //Check if the user approved the article in time
-                if ($completed != null && isset($setDate) && $setDate->format('Ymd') <= $parentDueDate->format('Ymd') && $approved->format('Ymd') > $setDate->format('Ymd')) {
+                if ($completed && $parentDueDate && isset($setDate) && $setDate->format('Ymd') <= $parentDueDate->format('Ymd') && $approved->format('Ymd') > $setDate->format('Ymd')) {
                     // $faults += 1;
                     $days = $approved->diffInDays($setDate) - 2;
                     if ($days > 0) {
