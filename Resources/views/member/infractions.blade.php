@@ -77,7 +77,7 @@
 							<td>{{ $employee->id }}</td>
 							<td><a href="javascript:;" onclick="userInfractions('{{ $employee->id }}')">{{ $employee->name }}</a></td>
 							<td>
-								{{$employee->scores->infraction_score}}
+								{{$employee->scores->infraction_score ?? '--'}}
 							</td>
 						</tr>
 					@endforeach
